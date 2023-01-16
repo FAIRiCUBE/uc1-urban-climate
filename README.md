@@ -11,10 +11,10 @@ As reported by the most recent EEA report on urban adaptation to climate change,
 Research Questions:
 -------------------------------------------------------------------------------------------
 
-•		Do the currently available European data help cities in being appropriately informed about climate change and its impact on cities? 
-•		Can big data (historical, real-time, and modelled forecast spatial data) and ML approaches help European cities to prepare for the impacts of climate change and take adaptive measures/make informed decisions? 
-•		In how far can datacubes enable local, regional, national, and European decision-makers to achieve the goals of the European Green Deal? 
-•		Does the European Green Deal data space provide the best possible means to collect, store and provide European data on climate change impacts on cities? 
+- Do the currently available European data help cities in being appropriately informed about climate change and its impact on cities? 
+- Can big data (historical, real-time, and modelled forecast spatial data) and ML approaches help European cities to prepare for the impacts of climate change and take adaptive measures/make informed decisions? 
+- In how far can datacubes enable local, regional, national, and European decision-makers to achieve the goals of the European Green Deal? 
+- Does the European Green Deal data space provide the best possible means to collect, store and provide European data on climate change impacts on cities? 
 
 
 Implementation methodology:
