@@ -2,6 +2,7 @@
 ## PARAMETERS: NEW
 ##		-of Format (→ COG = Cloud Optimized GeoTIFF)
 ##		-ps Tilesize (Number of cells per line and column)
+## https://docs.sentinel-hub.com/api/latest/api/byoc/#gdal-example-command
 
 cd C:\ProgramData\Anaconda3\Scripts
 
