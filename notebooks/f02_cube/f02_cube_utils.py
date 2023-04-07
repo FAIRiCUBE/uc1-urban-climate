@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import rasterio as rio
 import IPython.display
+from typing import Any, Optional, Tuple
 
 # load utils functions
 from f02_cube_utils import *
@@ -31,6 +32,19 @@ from sentinelhub import (
     os_utils,
 )
 
+def plot_image(
+    image: np.ndarray, factor: float = 1.0, clip_range: Optional[Tuple[float, float]] = None, **kwargs: Any
+) -> None:
+    """Utility function for plotting RGB images."""
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15, 15))
+    if clip_range is not None:
+        ax.imshow(np.clip(image * factor, *clip_range), **kwargs)
+    else:
+        ax.imshow(image * factor, **kwargs)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    
 def bbox_optimal_subsize(bbox_size):
     if(bbox_size[0] < 2500 and bbox_size[1] < 2500):
         return 1
@@ -68,7 +82,7 @@ def combine_ua_table_from_city_subcube(raster_2band, output_file, bbox = None, b
     # ouptut_table = "./../../../s3/data/c001_city_cube/tables/urban_cube_v1.csv"
     filepath = Path(output_file)  
     # filepath.parent.mkdir(parents=True, exist_ok=True)  
-    combine_table_cube_urban.to_csv(filepath)  
+    combine_table_cube_urban.to_csv(filepath, index=False)  
 
 def load_raster(raster_2band):
     with rio.Env():
