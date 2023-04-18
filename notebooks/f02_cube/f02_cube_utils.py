@@ -59,11 +59,11 @@ def combine_ua_table_from_city_subcube(raster_2band, output_file, bbox = None, b
     if(type(raster_2band) is str):
         xs, ys, b1, b2 = load_raster(raster_2band)
     else:
-        crs = "EPSG:4326"
+        # crs = "EPSG:4326"
         if((bbox == None) or (bbox_size == None)):
             print("Must provide bounding box for numpy arrays")
             exit()
-        xs, ys, b1, b2 = load_numpyvector(raster_2band, bbox, bbox_size, crs)
+        xs, ys, b1, b2 = load_numpyvector(raster_2band, bbox, bbox_size)
         
     data = {"X": pd.Series(xs.ravel()),
             "Y": pd.Series(ys.ravel()),
@@ -72,8 +72,6 @@ def combine_ua_table_from_city_subcube(raster_2band, output_file, bbox = None, b
            }
 
     df = pd.DataFrame(data=data)
-    geometry = gpd.points_from_xy(df.X, df.Y)
-    gdf = gpd.GeoDataFrame(df, crs=crs, geometry=geometry)
 
     ### combine:
     combine_table_cube_urban=df.groupby(['city_code','urban_atlas_2018']).size().reset_index().rename(columns={0:'count'})
@@ -106,7 +104,7 @@ def load_raster(raster_2band):
             xs, ys, b1,b2 = xs[mask], ys[mask], b1[mask],b2[mask]
             return xs, ys, b1, b2
 
-def load_numpyvector(raster_2band, bbox, bbox_size, crs):
+def load_numpyvector(raster_2band, bbox, bbox_size):
 #     TODO change projection
     xmin, ymin, xmax, ymax = bbox
     width = bbox_size[0]
