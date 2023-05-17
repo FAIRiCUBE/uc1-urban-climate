@@ -9,9 +9,6 @@ import rasterio as rio
 import IPython.display
 from typing import Any, Optional, Tuple
 
-# load utils functions
-from f02_cube_utils import *
-
 # Sentinel Hub
 from sentinelhub import (
     CRS,
