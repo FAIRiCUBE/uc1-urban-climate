@@ -4,7 +4,7 @@ setup(
     name='src',
     packages=find_packages(),
     version='0.1.0',
-    description='A short description of the project.',
-    author='stefan_jetschny',
+    description='FAIRiCube Use Case 1: Urban climate adaptation.',
+    author='',
     license='MIT',
 )

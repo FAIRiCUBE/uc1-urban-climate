@@ -1,6 +1,16 @@
+
 FAIRICUBE Use Case "Urban adaptation to climate change"
 ==============================
 
+
+Getting started:
+-------------------------------------------------------------------------------------------
+
+The `src` folder contains reusable scripts and functions. To use them in the notebooks, you must declare `src` as a package. 
+- Open a terminal window 
+- Navigate to the project's root folder
+- Install `src` as editable package with the command `pip install -e .`
+To use, for example, `utils` functions in notebooks, `import src` and call the function `utils.<function-name>`. Edits to the `src` folder are immediately available in the notebooks.
 
 About this Use Case:
 -------------------------------------------------------------------------------------------
@@ -51,19 +61,13 @@ Directory layout:
     ├── LICENSE
     ├── Makefile           <- Makefile with commands like `make data` or `make train`
     ├── README.md          <- The top-level README for developers using this project.
-    ├── data
-    │   ├── external       <- Data from third party sources.
-    │   ├── interim        <- Intermediate data that has been transformed.
-    │   ├── processed      <- The final, canonical data sets for modeling.
-    │   └── raw            <- The original, immutable data dump.
+    ├── data               <- symbolic link to AWS s3 object storage
     │
     ├── docs               <- A default Sphinx project; see sphinx-doc.org for details
     │
     ├── models             <- Trained and serialized models, model predictions, or model summaries
     │
-    ├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
-    │                         the creator's initials, and a short `-` delimited description, e.g.
-    │                         `1.0-jqp-initial-data-exploration`.
+    ├── notebooks          <- Jupyter notebooks.
     │
     ├── references         <- Data dictionaries, manuals, and all other explanatory materials.
     │
@@ -76,6 +80,7 @@ Directory layout:
     ├── setup.py           <- makes project pip installable (pip install -e .) so src can be imported
     ├── src                <- Source code for use in this project.
     │   ├── __init__.py    <- Makes src a Python module
+    │   ├── utils.py       <- Collection of common functions used in notebooks
     │   │
     │   ├── data           <- Scripts to download or generate data
     │   │   └── make_dataset.py
