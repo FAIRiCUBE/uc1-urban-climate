@@ -174,3 +174,56 @@ def split_geometry(geometry, bbox):
         geometry = geometry.geometry
     geometry_split = geometry.intersection(bbox_polygon)
     return geometry_split
+
+def CDS_get_utci_hourly_zipped(output_folder, year):
+    args = {
+        "months": ['01', '02', '03',
+                '04', '05', '06',
+                '07', '08', '09',
+                '10', '11', '12',],
+        "days":   ['01', '02', '03',
+                '04', '05', '06',
+                '07', '08', '09',
+                '10', '11', '12',
+                '13', '14', '15',
+                '16', '17', '18',
+                '19', '20', '21',
+                '22', '23', '24',
+                '25', '26', '27',
+                '28', '29', '30',
+                '31'],
+        "hours": [
+            '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00',
+            '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
+            '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00',
+            '21:00', '22:00', '23:00']
+        }
+    for year in years:
+        print(year)
+        c.retrieve(
+                'derived-utci-historical', 
+            {
+                'version': '1_1',
+                'day': args["days"],
+                'month': args["months"],
+                'year':[year],
+                'time':  args["hours"],
+                'product_type': 'consolidated_dataset',
+                'variable': 'universal_thermal_climate_index',
+            },
+            output_folder+f'utci_hourly_{year}.zip')
+    return f'utci_hourly_{year}'
+
+def unzip_to_folder(input_folder, file_name):
+    from zipfile import ZipFile
+    climate_path = input_folder + file_name + ".zip"
+    # opening the zip file in READ mode
+    with ZipFile(climate_path, 'r') as zip:
+        # printing all the contents of the zip file
+        zip.printdir()
+    
+        # extracting all the files
+        print('Extracting all the files now...')
+        zip.extractall(input_folder+file_name)
+        print('Done!')
+    return input_folder+file_name+"/"
