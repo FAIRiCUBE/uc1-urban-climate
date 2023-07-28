@@ -176,6 +176,8 @@ def split_geometry(geometry, bbox):
     return geometry_split
 
 def CDS_get_utci_hourly_zipped(output_folder, year):
+    import cdsapi
+    c = cdsapi.Client()
     args = {
         "months": ['01', '02', '03',
                 '04', '05', '06',
@@ -192,25 +194,19 @@ def CDS_get_utci_hourly_zipped(output_folder, year):
                 '25', '26', '27',
                 '28', '29', '30',
                 '31'],
-        "hours": [
-            '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00',
-            '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
-            '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00',
-            '21:00', '22:00', '23:00']
         }
-    for year in years:
-        print(year)
-        c.retrieve(
-                'derived-utci-historical', 
-            {
-                'version': '1_1',
-                'day': args["days"],
-                'month': args["months"],
-                'year':[year],
-                'time':  args["hours"],
-                'product_type': 'consolidated_dataset',
-                'variable': 'universal_thermal_climate_index',
-            },
+    print(year)
+    c.retrieve(
+            'derived-utci-historical', 
+        {
+            'version': '1_1',
+            'format': 'zip',
+            'day': args["days"],
+            'month': args["months"],
+            'year': year,
+            'product_type': 'consolidated_dataset',
+            'variable': 'universal_thermal_climate_index',
+        },
             output_folder+f'utci_hourly_{year}.zip')
     return f'utci_hourly_{year}'
 
