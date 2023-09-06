@@ -96,7 +96,7 @@ def run_process():
 
     # ## Read the downloaded .nc file with xarray
     logger.info("Start reading data as xarray")
-    climate_path = climate_folder+"utci_hourly_1994/ECMWF_utci_1994010*.nc"
+    climate_path = climate_folder+"utci_hourly_1994/ECMWF_utci_1994*.nc"
     # climate_folder+f"utci_hourly_1994/ECMWF_utci_1994*_v1.1_con.nc" 
     data = xr.open_mfdataset(climate_path, engine="netcdf4", parallel=True)
     logger.info("Finished reading data as xarray")
@@ -157,12 +157,12 @@ def run_process():
                  shape=[],
                  libraries=[k for k, v in globals().items() if type(v) is ModuleType and not k.startswith('__')],
                  data_path=climate_folder+"utci_hourly_1994/",
-                 csv_file=input_folder+f"l001_logs/utci_benchmarks_{year}.csv",
+                 csv_file=input_folder+f"l001_logs/utci_benchmarks_{year}_all.csv",
                 logger=logger)
 
 if __name__ == "__main__":
     # ## Set up logger
     # add log file
-    year = '199433'
-    logger.add(f"./../../../s3/data/l001_logs/utci_logger_{year}.log")
+    year = '1994'
+    logger.add(f"./../../../s3/data/l001_logs/utci_logger_{year}_large_all.log", enqueue=True)
     run_process()
