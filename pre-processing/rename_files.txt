@@ -1,0 +1,1 @@
+for file in *.tif; do mv "$file" "${file/.tif/_B01.tif}"; done
