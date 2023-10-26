@@ -50,12 +50,28 @@ class Measurer:
         self.wall_time = end - t
         return end
 
-    def start_compute_data_size(self, data_path):
-        self.data_size = psutil.disk_usage(data_path).used
-
-    def end_compute_data_size(self, data_path):
+    def start_compute_data_size(self, data_path, aws_s3, aws_session):
+        if aws_s3:
+            s3 = aws_session.resource('s3')
+            bucket = s3.Bucket(data_path)
+            size_in_bytes = 0
+            for key in bucket.objects.all():
+                size_in_bytes += key.size
+            self.data_size = size_in_bytes
+        else:
+            self.data_size = psutil.disk_usage(data_path).used
+            
+    def end_compute_data_size(self, data_path, aws_s3, aws_session):
         start = self.data_size
-        end = psutil.disk_usage(data_path).used
+        if aws_s3:
+            s3 = aws_session.resource('s3')
+            bucket = s3.Bucket(data_path)
+            size_in_bytes = 0
+            for key in bucket.objects.all():
+                size_in_bytes += key.size
+            end = size_in_bytes
+        else:
+            end = psutil.disk_usage(data_path).used
         end = end - start
         self.data_size = end
         return end
@@ -141,12 +157,29 @@ class Measurer:
         old_value = self.network_traffic
         self.network_traffic = new_value - old_value
 
-    def get_essential_libraries(self, libraries):
-        lib = ''
-        for i in libraries:
-            lib = lib + i + "\n"
-        self.essential_libraries = lib
-        return lib
+    def get_essential_libraries(self, libraries, program_path):
+        f = open(program_path, 'r')
+        lib = libraries
+        while True:
+            code_line = f.readline()
+            if not code_line:
+                break
+            if code_line[0] == '#':
+                continue
+            if not (code_line[:5] == 'from ' and code_line.__contains__('import')):
+                continue
+            code_line = code_line.split(' ')[1]
+            if code_line == 'types' or code_line == 'measurer':
+                continue
+            if code_line.__contains__('.'):
+                code_line = code_line.split('.')[0]
+            if code_line not in lib:
+                lib.append(code_line)
+        lib_str = ''
+        for i in lib:
+            lib_str = lib_str + i + "\n"
+        self.essential_libraries = lib_str
+        return lib_str
 
     def write_out(self, csv_file):
         csv = pd.DataFrame(columns=['Measure', 'Value'])
@@ -172,30 +205,29 @@ class Measurer:
         return csv
 
     # start
-    def start(self, data_path='/'):
+    def start(self, data_path='/', logger=None, aws_s3=False, aws_session=None):
         self.start_compute_wall_time()
-        print("Started compute wall time")
+        if(logger!=None):
+            logger.info("Started computational costs meter: wall time, memory consumed, network traffic, CO2 emissions, data size")
         self.start_compute_main_memory_consumed()
-        print("Started compute main memory consumed")
         self.start_compute_network_traffic()
-        print("Started compute network traffic")
         tracker = self.start_compute_co2_emissions()
-        print("Started compute CO2 emissions")
-        self.start_compute_data_size(data_path)
-        print("Started compute data size")
+        self.start_compute_data_size(data_path, aws_s3, aws_session)
         return tracker
 
     # end
-    def end(self, tracker, shape, libraries, csv_file, data_path='/'):
+    def end(self, tracker, shape, libraries, csv_file, data_path='/', program_path=__file__, logger=None, aws_s3=False, aws_session=None):
         self.end_compute_main_memory_consumed()
         self.end_compute_co2_emissions(tracker)
         self.end_compute_network_traffic()
         self.compute_data_size_in_grid_points(shape)
         self.compute_energy_consumed()
         self.total_main_memory_available()
-        self.end_compute_data_size(data_path)
         self.cpu_gpu_description()
-        self.get_essential_libraries(libraries)
+        self.get_essential_libraries(libraries, program_path)
+        self.end_compute_data_size(data_path, aws_s3, aws_session)
         self.end_compute_wall_time()
         csv = self.write_out(csv_file)
+        if(logger!=None):
+            logger.info("Stopped computational costs meter. Results saved at"+csv_file)
         print(csv)
