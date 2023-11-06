@@ -77,8 +77,18 @@ if __name__ == '__main__':
                 if (not list(inter[inter['indic_code'] == target][str(y)].isna())[0]):
                     mask = False
             if mask:
-                missing = missing.append(dict(zip(missing.columns, [j, y, target])), ignore_index=True)
+                missing = missing.append(dict(zip(missing.columns, [j, target, y])), ignore_index=True)
 
-    print('Missing data size: ', len(missing))
-    missing.to_csv('Missing_' + target+ '.csv', index=False)
 
+    d3 = {}
+    d3['City'] = []
+    d3['Year'] = []
+    d3['EN1003V'] = []
+    d3['EN1004V'] = []
+    X_missing = pd.DataFrame(data=d3)
+    for index, row in missing.iterrows():
+        r = list(data[(data['urau_code'] == row['City']) & ((data['indic_code'] == 'EN1003V') | (data['indic_code'] == 'EN1004V'))][str(row['Year'])[:-2]])
+        X_missing = X_missing.append(dict(zip(X_missing.columns, [row['City'], row['Year'], r[0], r[1]])), ignore_index=True)
+
+    X_missing.to_csv('X_missing_'+ target +'.csv', index=False)
+    print('Missing data size: ', len(X_missing))
