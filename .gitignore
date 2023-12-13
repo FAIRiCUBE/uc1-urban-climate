@@ -2,3 +2,5 @@
 notebooks/.ipynb_checkpoints
 */.ipynb_checkpoints/*
 **/*.cpython-39.pyc
+*.egg-info/
+.vscode/settings.json
