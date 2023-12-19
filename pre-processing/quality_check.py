@@ -325,8 +325,10 @@ class QualityChecker:
         # set bounding box
         ingested_crs = self.r_ingested_tiles_metadata[0]['tileGeometry'][ 'crs']['properties'][ 'name'].split(':')[-1]
         resolution = self.r_ingested_tiles_metadata[0]['additionalData']['minMetersPerPixel'] 
-        bbox=  BBox(bbox=bbox_coords, crs=CRS(ingested_crs))
-        print(bbox, bbox_to_dimensions(bbox, resolution), resolution, CRS(ingested_crs))
+        bbox = BBox(bbox=bbox_coords, crs=CRS(ingested_crs))
+        x1, y2, x2, y1 = bbox_coords
+        size = ((x2 - x1)/resolution, (y1 - y2)/resolution)
+        print(size)
         # set data collection
         self.r_ingested_collectionName = self.r_ingested_collection_metadata['name']
         self.r_ingested_DataCollection = DataCollection.define_byoc(self.r_ingested_collectionId, name=self.r_ingested_collectionName)
@@ -364,7 +366,7 @@ class QualityChecker:
                 SentinelHubRequest.output_response('default', MimeType.PNG)
             ],
             bbox=bbox,
-            size=bbox_to_dimensions(bbox, resolution),
+            size=size,
             config=self.sh_config)
 
         data = request.get_data()[0]
@@ -393,7 +395,6 @@ class QualityChecker:
             "count": len(band_data.ravel()),
             #TODO "no_data_count", "distinct_count", "date_range", count of most frequent vale
             }
-            print(band_data.shape)
         # get statistics of ingested raster
         stats_ingested = self.get_stats_sh(bbox_coords)
         # compare
@@ -422,7 +423,7 @@ if __name__ == "__main__":
     # change the following parameters to point to your data
     collection_name = "environmental_zones_1km"               # should be the collection name!!!"
     collection_id   ='5b45916e-6704-4581-824f-4d713198731b'  # collection ID
-    original_raster ="./../../../../s3/data/d005_env_zones/raw_env_zones/env_zones_1km_3035.tif"   ## path to original data
+    original_raster ="./../../s3/data/d005_env_zones/raw_env_zones/env_zones_1km_3035.tif"   ## path to original data
     
     logger.info(f"Collection Id: {collection_id}")
     logger.info(f"Collection Name: {collection_name}")
