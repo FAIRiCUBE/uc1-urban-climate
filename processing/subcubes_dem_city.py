@@ -105,7 +105,9 @@ def subcube(dim_name):
     city_polygons = "./../../s3/data/d001_administration/urban_audit_city_2021/URAU_RG_100K_2021_3035_CITIES/URAU_RG_100K_2021_3035_CITIES.shp"
     geo_json_city = gpd.read_file(city_polygons)
     gdf_city = gpd.GeoDataFrame(geo_json_city, crs="EPSG:3035")
-    gdf_city = gdf_city[~gdf_city.URAU_CODE.isin(['FI004C', 'BG016C', 'SE008C'])]
+    gdf_city = gdf_city[gdf_city.URAU_CODE.isin(['BG016C','HR007C','IT003C','BG017C','DE002C',
+                                        'PT001C','ES088C','ES010C','ES069C','FR072C','FI004C',
+                                        'SE008C','ES045C','ES039C','NL037C','PT004C'])]
     # define evalscript
     evalscript = """
     //VERSION=3
@@ -158,7 +160,7 @@ def subcube(dim_name):
             # break
         else:
             logger.info(f"Splitting bounding box in {(bbox_subsize_b,bbox_subsize_b)} subgrid")
-            bbox_split = BBoxSplitter([bbox_b], CRS('3035').pyproj_crs(), bbox_subsize_b)
+            bbox_split = BBoxSplitter([geometry_b], CRS('3035').pyproj_crs(), bbox_subsize_b, reduce_bbox_sizes=True)
             # create a list of requests
             bbox_list = bbox_split.get_bbox_list()
             geometry_list = [Geometry(geometry=utils.split_geometry(geometry_b, bbox), crs=CRS('3035').pyproj_crs()) for bbox in bbox_list]
@@ -194,11 +196,11 @@ def subcube(dim_name):
                  libraries=[v.__name__ for k, v in globals().items() if type(v) is ModuleType and not k.startswith('__')],
                  data_path=data_path,
                  program_path=__file__,
-                 csv_file=f'./../../s3/data/l001_logs/benchmarks_stats_{dim_name}.csv')
+                 csv_file=f'./../../s3/data/l001_logs/benchmarks_stats_{dim_name}_v2.csv')
     return df_all
     
 
 if __name__ == "__main__":
     dim_name = 'DEM_COPERNICUS_30'
     df = subcube(dim_name)
-    df.to_csv(f"./../../s3/data/c001_city_cube/{dim_name}.csv", mode='a')
+    df.to_csv(f"./../../s3/data/c001_city_cube/{dim_name}_v2.csv", mode='a')
