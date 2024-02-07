@@ -154,8 +154,19 @@ def get_tiff_paths_from_code(URAU_CODE):
 # get buffer geometry
 def buffer_geometry(geometry, buffer_size=1000):
     buffer = geometry.buffer(buffer_size)
-    bbox_coords_buffer = buffer.bounds
-    geometry_b = Geometry(geometry=buffer, crs=CRS('3035').pyproj_crs())
+    
+    # remove inner holes
+    if(buffer.geom_type == 'Polygon'):
+        new_poly = Polygon(buffer.exterior.coords, holes=[])
+    else: # MultiPolygon
+        list_geoms = []
+        for poly in buffer.geoms:
+            new_poly = Polygon(poly.exterior.coords, holes=[])
+            list_geoms.append(new_poly)
+        new_poly = MultiPolygon(list_geoms)
+    
+    bbox_coords_buffer = new_poly.bounds
+    geometry_b = Geometry(geometry=new_poly, crs=CRS('3035').pyproj_crs())
     bbox_b = geometry_b.bbox
     
     bbox_size_b = bbox_to_dimensions(bbox_b, resolution=10)
