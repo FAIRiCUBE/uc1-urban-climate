@@ -105,9 +105,9 @@ def subcube(dim_name):
     city_polygons = "./../../s3/data/d001_administration/urban_audit_city_2021/URAU_RG_100K_2021_3035_CITIES/URAU_RG_100K_2021_3035_CITIES.shp"
     geo_json_city = gpd.read_file(city_polygons)
     gdf_city = gpd.GeoDataFrame(geo_json_city, crs="EPSG:3035")
-    gdf_city = gdf_city[gdf_city.URAU_CODE.isin(['BG016C','HR007C','IT003C','BG017C','DE002C',
-                                        'PT001C','ES088C','ES010C','ES069C','FR072C','FI004C',
-                                        'SE008C','ES045C','ES039C','NL037C','PT004C'])]
+    # gdf_city = gdf_city[gdf_city.URAU_CODE.isin(['BG016C','HR007C','IT003C','BG017C','DE002C',
+    #                                     'PT001C','ES088C','ES010C','ES069C','FR072C','FI004C',
+    #                                     'SE008C','ES045C','ES039C','NL037C','PT004C'])]
     # define evalscript
     evalscript = """
     //VERSION=3
@@ -115,16 +115,22 @@ def subcube(dim_name):
     function setup() {
     return {
         input: ["DEM"],
-        output:{ 
-        id: "default",
-        bands: 1, 
-        sampleType: SampleType.INT16
-        }
+        output:[{ 
+            id: "default",
+            bands: 1, 
+            sampleType: SampleType.INT16
+        },
+        {
+            id: "dataMask",
+            bands: 1
+        }]
     }
     }
 
     function evaluatePixel(sample) {
-    return [sample.DEM]
+    return {
+        default: [sample.DEM+1.0], // shift by one to distinguish real 0 from nodata 0
+        dataMask: [sample.dataMask]}
     }
     """
     
@@ -132,7 +138,7 @@ def subcube(dim_name):
     df_all = pd.DataFrame(columns=['URAU_CODE', 'dem_min', 'dem_max', 'dem_mean', 'dem_std', 'dem_count'])
     for row in gdf_city.itertuples():
 
-        logger.info(f"Downloading {row.URAU_NAME} data")
+        logger.info(f"Downloading {row.URAU_CODE} {row.URAU_NAME}")
         
         #------------------------------------------
         geometry_gdf = row.geometry
@@ -143,13 +149,18 @@ def subcube(dim_name):
             request = sentinelhub_request(evalscript, geometry_b, bbox_b, bbox_size_b, config)
             try:
                 data = request.get_data()[0]
-                if(np.std(data) > 0):
+                # set nodata to numpy nan
+                data = data.astype("float")
+                data[data == 0] = np.nan
+                # shift back data to original value (see evalscript)
+                data = data - 1
+                if(np.nanstd(data) > 0):
                     df = pd.DataFrame(data = {
                         'URAU_CODE':    [row.URAU_CODE],
-                        'dem_min':      [np.min(data)],
-                        'dem_max':      [np.max(data)],
-                        'dem_mean':     [np.mean(data)],
-                        'dem_std':      [np.std(data)],
+                        'dem_min':      [np.nanmin(data)],
+                        'dem_max':      [np.nanmax(data)],
+                        'dem_mean':     [np.nanmean(data)],
+                        'dem_std':      [np.nanstd(data)],
                         'dem_count':    [len(data)]
                     })
             except:
@@ -167,40 +178,46 @@ def subcube(dim_name):
             sh_requests = [sentinelhub_request(evalscript, geometry, subbbox, bbox_to_dimensions(subbbox, resolution=10), config) for (geometry,subbbox) in list(zip(geometry_list,bbox_list))]
             error=False
             data_tmp = np.array([])
-            for req in sh_requests:
+            for idx, req in enumerate(sh_requests):
                 try:
                     data = req.get_data()[0]
-                    # do something with the data
-                    if(np.std(data) > 0):
+                    # set nodata to numpy nan
+                    data = data.astype("float")
+                    data[data == 0] = np.nan
+                    # shift back data to original value (see evalscript)
+                    data = data - 1
+                    if(np.nanstd(data) > 0):
                         data_tmp = np.concatenate((data_tmp,data.ravel()))
-                        print(data)
-                        print(data_tmp)
+                        # print(data)
+                        # print(data_tmp)
+                        logger.info(f"Processing subbox no.{idx}")
                 except:
                     logger.info("an error occurred")
                     print(row.URAU_CODE)
                     error=True
                     break
             if(~error and len(data_tmp)>0):
+                logger.info("Concatenating results")
                 df = pd.DataFrame(data = {
                         'URAU_CODE':    [row.URAU_CODE],
-                        'dem_min':      [np.min(data_tmp)],
-                        'dem_max':      [np.max(data_tmp)],
-                        'dem_mean':     [np.mean(data_tmp)],
-                        'dem_std':      [np.std(data_tmp)],
+                        'dem_min':      [np.nanmin(data_tmp)],
+                        'dem_max':      [np.nanmax(data_tmp)],
+                        'dem_mean':     [np.nanmean(data_tmp)],
+                        'dem_std':      [np.nanstd(data_tmp)],
                         'dem_count':    [len(data_tmp)]
                     })
                 df_all = pd.concat([df_all, df])
-        print(df_all.tail(1))
+        print(df_all[df_all.URAU_CODE == row.URAU_CODE])
     measurer.end(tracker=tracker,
                  shape=[],
                  libraries=[v.__name__ for k, v in globals().items() if type(v) is ModuleType and not k.startswith('__')],
                  data_path=data_path,
                  program_path=__file__,
-                 csv_file=f'./../../s3/data/l001_logs/benchmarks_stats_{dim_name}_v2.csv')
+                 csv_file=f'./../../s3/data/l001_logs/benchmarks_stats_{dim_name}_v3.csv')
     return df_all
     
 
 if __name__ == "__main__":
     dim_name = 'DEM_COPERNICUS_30'
     df = subcube(dim_name)
-    df.to_csv(f"./../../s3/data/c001_city_cube/{dim_name}_v2.csv", mode='a')
+    df.to_csv(f"./../../s3/data/c001_city_cube/{dim_name}_v3.csv", mode='a')
