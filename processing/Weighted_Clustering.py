@@ -46,16 +46,14 @@ class WeightedKMeans:
             Y = X * weights
             new_centers = np.array([Y[self.labels_ == i].mean(axis=0) for i in range(self.n_clusters)])
 
-
-
-
-            distances = np.linalg.norm(X - self.cluster_centers_[self.labels_], axis=1)
-            self.inertia_ = np.sum(distances ** 2)
             # Check for convergence
             if np.allclose(self.cluster_centers_, new_centers):
                 break
 
             self.cluster_centers_ = np.array(new_centers)
+
+            distances = np.linalg.norm(X - self.cluster_centers_[self.labels_], axis=1)
+            self.inertia_ = np.sum(distances ** 2)
 
     def predict(self, X):
         return np.argmin(np.linalg.norm(X[:, np.newaxis] - self.cluster_centers_, axis=2), axis=1)
@@ -294,6 +292,29 @@ if __name__ == '__main__':
     result_dir = 'Results'
     if not os.path.exists(result_dir):
         os.makedirs(result_dir)
+
+    tsne = TSNE(n_components=2, random_state=42)  # Set n_components=2 for 2D visualization
+    tsne_features = tsne.fit_transform(normalized_features)
+    cluster_colors = [plt.cm.jet(i / float(optimal_k)) for i in range(optimal_k)]
+
+    # Create a 2D scatter plot for t-SNE visualization
+    plt.figure(figsize=(10, 8))
+    for cluster_label, color in zip(range(optimal_k), cluster_colors):
+        # Filter data points belonging to the current cluster
+        cluster_indices = np.where(weighted_kmeans.labels_ == cluster_label)[0]
+        plt.scatter(tsne_features[cluster_indices, 0], tsne_features[cluster_indices, 1],
+                    label=f'Cluster {cluster_label}', color=color, alpha=0.5)
+
+    plt.title('t-SNE Visualization of Clusters')
+    plt.xlabel('t-SNE Feature 1')
+    plt.ylabel('t-SNE Feature 2')
+    plt.legend()
+
+    file_name = 'Clustering_TSNE_2D.pdf'
+    file_path = os.path.join(result_dir, file_name)
+    plt.savefig(file_path, format='pdf')
+    plt.show()
+    plt.close()
 
 
     tsne = TSNE(n_components=3, random_state=42)
