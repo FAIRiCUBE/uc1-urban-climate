@@ -1,43 +1,24 @@
 
-import datetime as dt
 from datetime import datetime
 # Utilities
-import boto3
-import dateutil
-import geopandas as gpd
-import matplotlib.pyplot as plt
 import pandas as pd
 import os
 import rasterio
 import rasterio.mask
-from rasterio.plot import show_hist
-from rasterio.plot import show
-from rasterio.windows import Window
 from rasterio.windows import from_bounds # for aoi
 import pprint
-import random
-import fiona
 import numpy as np
-from shapely.geometry import mapping, Polygon
-from shapely import geometry
 from loguru import logger
 
 # Sentinel Hub
 from sentinelhub import (
     CRS,
     BBox,
-    ByocCollection,
-    ByocCollectionAdditionalData,
-    ByocCollectionBand,
-    ByocTile,
     DataCollection,
-    DownloadFailedException,
     MimeType,
     SentinelHubBYOC,
     SentinelHubRequest,
     SHConfig,
-    bbox_to_dimensions,
-    os_utils,
 )
 
 config = SHConfig()
@@ -50,7 +31,6 @@ config.aws_secret_access_key = os.environ.get("password")
 class QualityChecker:
     
     def __init__(self):
-        # TODO connector to sentinelhub
         self.sh_config = ''
         # original raster dataset
         self.r_original = ''
