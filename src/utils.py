@@ -33,7 +33,16 @@ from sentinelhub import (
 def plot_image(
     image: np.ndarray, factor: float = 1.0, clip_range: Optional[Tuple[float, float]] = None, **kwargs: Any
 ) -> None:
-    """Utility function for plotting RGB images."""
+    """
+    This function plots an RGB image using matplotlib's imshow function. 
+    The image intensity can be adjusted using the factor parameter, and the intensity range can be clipped using the clip_range parameter.
+
+    Parameters:
+    image (np.ndarray): Input image to plot.
+    factor (float, optional): Factor to adjust the image intensity. Defaults to 1.0.
+    clip_range (Tuple[float, float], optional): Tuple to define the range for intensity clipping. Defaults to None.
+    **kwargs: Additional keyword arguments for imshow function.
+    """
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15, 15))
     if clip_range is not None:
         ax.imshow(np.clip(image * factor, *clip_range), **kwargs)
@@ -43,6 +52,18 @@ def plot_image(
     ax.set_yticks([])
 
 def list_byoc_collections(list_tiles=False):
+    """
+    This function lists all BYOC (Bring Your Own CO2) collections and their tiles from the Sentinel Hub. 
+    It uses the credentials from the environment variables to connect to the Sentinel Hub. 
+    The function can also list the status, creation time, and path of each tile in each collection.
+
+    Parameters:
+    list_tiles (bool, optional): If True, the function also lists the tiles for each collection. Defaults to False.
+
+    Returns:
+    None
+    """
+    # Get the configuration parameters from the environment variables
     config = SHConfig()
     config.instance_id = os.environ.get("SH_INSTANCE_ID")
     config.sh_client_id = os.environ.get("SH_CLIENT_ID")
@@ -50,16 +71,19 @@ def list_byoc_collections(list_tiles=False):
     config.aws_access_key_id = os.environ.get("username")
     config.aws_secret_access_key = os.environ.get("password")
 
-    # Initialize SentinelHubBYOC class
+    # Initialize SentinelHubBYOC class with the configuration
     byoc = SentinelHubBYOC(config=config)
-    # list collections and tiles
-    # from: https://sentinelhub-py.readthedocs.io/en/latest/examples/byoc_request.html
+    
+    # Get the iterator over the collections
     collections_iterator = byoc.iter_collections()
     my_collections = list(collections_iterator)
 
+    # Iterate over the collections and print their names and ids
     for collection in my_collections:
         print("Collection name:", collection["name"])
         print("Collection id: ", collection["id"])
+        
+        # If list_tiles is True, list the tiles for each collection
         if(list_tiles):
             tiles = list(byoc.iter_tiles(collection))
             for tile in tiles:
@@ -151,11 +175,28 @@ def get_tiff_paths_from_code(URAU_CODE):
     l_paths = pd.read_csv(lookuptable_folder+"city_UA_subcubes_path.csv")
     return l_paths[l_paths['URAU_CODE'] == URAU_CODE].path
 
-# get buffer geometry
-def buffer_geometry(geometry, buffer_size=1000):
+def buffer_geometry(geometry, crs, buffer_size=1, resolution = 100):
+    """
+    This function creates a buffer around a given geometry, removes any inner holes, and returns the new geometry,
+    its bounding box and its dimensions.
+
+    Parameters:
+    geometry (Geometry): The input geometry around which the buffer is to be created.
+    crs: Coordinate Reference System  TODO
+    buffer_size (int, optional): The size of the buffer to be created. Default is 1.
+    resolution (int, optional): The resolution of the output bounding box. Default is 100
+
+    Returns:
+    geometry_b (Geometry): The new geometry after creating the buffer and removing inner holes.
+    bbox_b (BBox): The bounding box of the new geometry.
+    bbox_size_b (tuple): The dimensions of the bounding box of the new geometry.
+    """
+
+    # Create a buffer around the input geometry
+    if(type(geometry) == gpd.GeoSeries):
+        geometry = geometry.item()
     buffer = geometry.buffer(buffer_size)
-    
-    # remove inner holes
+    # Remove inner holes
     if(buffer.geom_type == 'Polygon'):
         new_poly = Polygon(buffer.exterior.coords, holes=[])
     else: # MultiPolygon
@@ -164,12 +205,16 @@ def buffer_geometry(geometry, buffer_size=1000):
             new_poly = Polygon(poly.exterior.coords, holes=[])
             list_geoms.append(new_poly)
         new_poly = MultiPolygon(list_geoms)
-    
-    bbox_coords_buffer = new_poly.bounds
-    geometry_b = Geometry(geometry=new_poly, crs=CRS('3035').pyproj_crs())
+
+    # Create a Geometry object from the new polygon
+    geometry_b = Geometry(geometry=new_poly, crs=crs)
+
+    # Get the bounding box of the new geometry
     bbox_b = geometry_b.bbox
+    bbox_b_ = BBox(bbox=bbox_b, crs=crs)
     
-    bbox_size_b = bbox_to_dimensions(bbox_b, resolution=10)
+    # Get the dimensions of the bounding box of the new geometry
+    bbox_size_b = bbox_to_dimensions(bbox_b_, resolution=resolution)
     
     return geometry_b, bbox_b, bbox_size_b
 
@@ -242,3 +287,31 @@ def bytes_to(bytes_value, to, bsize=1024):
     for i in range(a[to]):
         r = r / bsize
     return r
+
+if __name__ == '__main__':
+    # test
+    # read in the city polygons
+    from src import db_connect
+    from sqlalchemy import text
+    import geopandas as gpd
+
+    home_dir = os.environ.get('HOME')
+    home_dir = 'C:/Users/MariaRicci/Projects_Cdrive/FAIRiCube'
+    engine_postgresql = db_connect.create_engine(db_config = f"{home_dir}/uc1-urban-climate/database.ini")
+
+    with engine_postgresql.begin() as conn:
+        query = text("""
+                SELECT urau_code, urau_name, geometry
+                FROM lut.l_city_urau2021
+                """)
+        gdf = gpd.read_postgis(query, conn, geom_col='geometry')
+
+    row = gdf[gdf.urau_name == 'Verona']
+    geometry_gdf = row.geometry # input argument
+    bbox_coords = geometry_gdf.bounds.minx, geometry_gdf.bounds.miny, geometry_gdf.bounds.maxx, geometry_gdf.bounds.maxy # input argument (or compute from geometry)
+
+    geometry = Geometry(geometry=geometry_gdf.item(), crs=CRS.WGS84) # define here your geometry
+    bbox = BBox(bbox=bbox_coords, crs=CRS.WGS84) # define here your bounding box
+    bbox_size = bbox_to_dimensions(bbox, resolution=resolution)
+    # get only buffer zone
+    geometry_b, bbox_b, bbox_size_b = buffer_geometry(geometry_gdf, buffer_size=100)
