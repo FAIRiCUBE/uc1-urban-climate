@@ -14,8 +14,7 @@ if __name__ == "__main__":
         print('src package is not installed')
     else:
         from src import db_connect
-        home_dir = os.environ.get('HOME')
-        home_dir = 'C:/Users/MariaRicci/Projects_Cdrive/FAIRiCube'
+        home_dir = os.environ.get('HOME') # works only in EOX Hub
         engine_postgresql = db_connect.create_engine(
             db_config=f"{home_dir}/uc1-urban-climate/database.ini")
 
