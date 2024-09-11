@@ -32,10 +32,10 @@ model = elapid.MaxentModel()
 model.fit(features, labels)
 
 # OPTIONAL but might be useful: Feature transformation.
-model = elapid.MaxentModel(feature_types=["linear"])
-featuresTransform = elapid.MaxentFeatureTransformer()
-z = featuresTransform.fit_transform(features)
-model.fit(z, labels)
+#model = elapid.MaxentModel(feature_types=["linear"])
+#featuresTransform = elapid.MaxentFeatureTransformer()
+#z = featuresTransform.fit_transform(features)
+#model.fit(z, labels)
 
 # Step 4: Make predictions for new environmental data
 new_data = pd.DataFrame({
