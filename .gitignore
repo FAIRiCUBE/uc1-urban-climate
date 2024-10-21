@@ -6,3 +6,7 @@ notebooks/.ipynb_checkpoints
 .vscode/settings.json
 database.ini
 *.log
+*.yml
+*.pyc
+src/__pycache__/
+src.egg-info/
