@@ -1,0 +1,33 @@
+Measure,Value
+Data size in grid points ,
+Largest allocated array in grid points ,"[1271, 15]"
+Data size (MB),0.0
+Main memory available (GB),30.66549301147461
+Main memory consumed (GB),0.17745644878596067
+Sum of allocated variable sizes (GB),0.0005075298249721527
+Description of CPU/GPU,"Machine type: x86_64
+Processor type: x86_64
+Number of physical cores: 4
+Number of logical cores: 8
+Min CPU frequency: 0.0 GHz
+Max CPU frequency: 0.0 GHz
+No GPU available
+"
+Wall time in seconds,4.1435627937316895
+Energy consumed (kw),3.291967580452501e-05
+CO₂-equivalents [CO₂eq] (kg),1.2031384354010387e-05
+Network traffic (MB),11.167156219482422
+Programming language,Python
+Essential libraries,"src.db_connect
+src.measurer
+s3fs
+xarray
+rioxarray
+pandas
+numpy
+os
+src
+sqlalchemy
+sklearn
+"
+Date, 21.10.2024

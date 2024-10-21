@@ -7,6 +7,8 @@ import torch
 import pandas as pd
 import os
 import time
+import sys
+import numpy as np
 
 
 # noinspection PyAttributeOutsideInit
@@ -15,12 +17,16 @@ class Measurer:
     def __int__(self):
         # DONE
         self.data_size_in_grid_points = ''
+        # TO DO
+        self.largest_allocated_array_in_grid_points = ''
         # DONE
         self.data_size = 0
         # DONE
         self.main_memory_available = 0
         # DONE
         self.main_memory_consumed = 0
+        # TO DO
+        self.sum_of_allocated_variable_sizes = 0
         # DONE
         self.cpu_gpu_description = ''
         # DONE
@@ -60,7 +66,7 @@ class Measurer:
             self.data_size = size_in_bytes
         else:
             self.data_size = psutil.disk_usage(data_path).used
-            
+
     def end_compute_data_size(self, data_path, aws_s3, aws_session):
         start = self.data_size
         if aws_s3:
@@ -184,12 +190,16 @@ class Measurer:
     def write_out(self, csv_file):
         csv = pd.DataFrame(columns=['Measure', 'Value'])
         csv.loc[len(csv)] = {'Measure': 'Data size in grid points ', 'Value': self.data_size_in_grid_points}
+        csv.loc[len(csv)] = {'Measure': 'Largest allocated array in grid points ',
+                             'Value': self.largest_allocated_array_in_grid_points}
         csv.loc[len(csv)] = {'Measure': 'Data size (MB)',
                              'Value': str(utils.bytes_to(self.data_size, 'm'))}
         csv.loc[len(csv)] = {'Measure': 'Main memory available (GB)',
                              'Value': str(utils.bytes_to(self.main_memory_available, 'g'))}
         csv.loc[len(csv)] = {'Measure': 'Main memory consumed (GB)',
                              'Value': str(utils.bytes_to(self.main_memory_consumed, 'g'))}
+        csv.loc[len(csv)] = {'Measure': 'Sum of allocated variable sizes (GB)',
+                             'Value': str(utils.bytes_to(self.sum_of_allocated_variable_sizes, 'g'))}
         csv.loc[len(csv)] = {'Measure': 'Description of CPU/GPU', 'Value': self.cpu_gpu_description}
         csv.loc[len(csv)] = {'Measure': 'Wall time in seconds', 'Value': self.wall_time}
         csv.loc[len(csv)] = {'Measure': 'Energy consumed (kw)', 'Value': self.max_energy_consumed}
@@ -204,11 +214,26 @@ class Measurer:
         csv.to_csv(csv_file, index=False)
         return csv
 
+    def compute_variable_sizes(self, variables):
+        variables_sum = 0
+        largest_array_size = 0
+        largest_array_shape = ''
+        for key in variables:
+            variables_sum = variables_sum + sys.getsizeof(variables[key])
+            if isinstance(variables[key], np.ndarray) or isinstance(variables[key], pd.DataFrame):
+                if variables[key].size > largest_array_size:
+                    largest_array_size = variables[key].size
+                    largest_array_shape = str(variables[key].shape).replace('(', '[').replace(')', ']')
+        self.sum_of_allocated_variable_sizes = variables_sum
+        self.largest_allocated_array_in_grid_points = largest_array_shape
+
     # start
     def start(self, data_path='/', logger=None, aws_s3=False, aws_session=None):
         self.start_compute_wall_time()
-        if(logger!=None):
-            logger.info("Started computational costs meter: wall time, memory consumed, network traffic, CO2 emissions, data size")
+        if logger is not None:
+            logger.info(
+                "Started computational costs meter: wall time, memory consumed, network traffic, CO2 emissions, data size"
+            )
         self.start_compute_main_memory_consumed()
         self.start_compute_network_traffic()
         tracker = self.start_compute_co2_emissions()
@@ -216,7 +241,8 @@ class Measurer:
         return tracker
 
     # end
-    def end(self, tracker, shape, libraries, csv_file, data_path='/', program_path=__file__, logger=None, aws_s3=False, aws_session=None):
+    def end(self, tracker, shape, libraries, csv_file, variables, data_path='/', program_path=__file__, logger=None, aws_s3=False,
+            aws_session=None):
         self.end_compute_main_memory_consumed()
         self.end_compute_co2_emissions(tracker)
         self.end_compute_network_traffic()
@@ -227,7 +253,8 @@ class Measurer:
         self.get_essential_libraries(libraries, program_path)
         self.end_compute_data_size(data_path, aws_s3, aws_session)
         self.end_compute_wall_time()
+        self.compute_variable_sizes(variables)
         csv = self.write_out(csv_file)
-        if(logger!=None):
-            logger.info("Stopped computational costs meter. Results saved at"+csv_file)
+        if logger is not None:
+            logger.info("Stopped computational costs meter. Results saved at" + csv_file)
         print(csv)
