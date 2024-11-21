@@ -10,11 +10,7 @@ from types import ModuleType
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
-
-# measure computational resources of Ellenberg-based distribution model
-
-# initialize measurer
-
+import xgboost as xgb
 
 # read data cube from s3
 def read_data_cube(base_path):
@@ -136,10 +132,11 @@ def get_occurrence_data(species_name):
             """    
                   SELECT gbif_key, species_name, sample_date, x_epsg2169, y_epsg2169 
                   FROM luxembourg_species.neophytes_geometry 
-                  WHERE species_name LIKE '%Fallopia%'  
+                  WHERE LOWER(REPLACE(species_name, ' ', '_')) = :species_name
+                AND sample_date > '2010-01-01'
         """
         )
-        df = pd.read_sql_query(query, conn)
+        df = pd.read_sql_query(query, conn, params={"species_name": species_name})
     # query data cube -- list of points
     x_coords = xr.DataArray(df.x_epsg2169)
     y_coords = xr.DataArray(df.y_epsg2169)
@@ -148,19 +145,20 @@ def get_occurrence_data(species_name):
 
 if __name__ == "__main__":
 
-    species_name = "fallopia_japonica" # not used
+    species_name = "robinia_pseudoacacia"
     base_path = "/data/d012_luxembourg"
+    test_size = 0.2
 
-    # initialize measurer
+    # # initialize measurer
     m_instance = measurer.Measurer()
-    tracker = m_instance.start(data_path=os.environ.get("HOME") + "/s3/" + base_path)
-    print('started measurer')
+    tracker = m_instance.start(data_path=os.environ.get("HOME") + "/s3" + base_path)
+    print("started measurer")
     x_occurrence, y_occurrence = get_occurrence_data(species_name)
-    print('loaded occurrence data')
-    
+    print("loaded occurrence data")
+
     habitat_cube = read_data_cube(base_path)
     habitat_cube = habitat_cube.squeeze()
-    print('loaded cube')
+    print("loaded cube")
     # Create the mask: where 'ellenberg_not_sealed_area' == 1
     mask = (habitat_cube["ellenberg_not_sealed_area"] != 1) | (
         habitat_cube["ellenberg_water_area"] == 1
@@ -168,22 +166,24 @@ if __name__ == "__main__":
 
     habitat_cube = habitat_cube.where(~mask, np.nan)
 
-    # Use gbif occurance data and extract nearest habitat value with sel
+    # Use gbif occurence data and extract nearest habitat value with sel
     habitat_occurrence = habitat_cube.sel(
         y=y_occurrence, x=x_occurrence, method="nearest"
     )
 
     habitat_occurrence_df = habitat_occurrence.to_dataframe()
     habitat_occurrence_df["occurrence"] = True
-    habitat_occurrence_df.dropna(inplace = True)
+    habitat_occurrence_df.dropna(inplace=True)
     n_occurrence = habitat_occurrence_df.shape[0]
     print(habitat_occurrence_df.shape)
     # Select no occurrence data
     habitat_background = habitat_cube.drop_sel(
         y=habitat_occurrence.y, x=habitat_occurrence.x
     )
-    
-    habitat_background_sample = habitat_background.drop_indexes(["x","y"]).stack(sample=("x","y"))
+
+    habitat_background_sample = habitat_background.drop_indexes(["x", "y"]).stack(
+        sample=("x", "y")
+    )
     habitat_background_sample = habitat_background_sample.isel(
         sample=sorted(
             np.random.randint(
@@ -194,15 +194,15 @@ if __name__ == "__main__":
 
     habitat_background_sample_df = habitat_background_sample.to_dataframe()
     habitat_background_sample_df["occurrence"] = False
-    habitat_background_sample_df.dropna(inplace = True)
+    habitat_background_sample_df.dropna(inplace=True)
     print(habitat_background_sample_df.shape)
     # concatenate samples
     df_sampled = pd.concat([habitat_occurrence_df, habitat_background_sample_df])
-    print('loaded training data')
+    print("loaded training data")
     print(df_sampled.shape)
     # https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
-    # Sample for xgboost model from equally distributed pre sampled data
-    train, test = train_test_split(df_sampled, test_size=0.2, random_state=3)
+    # Sample for classification model from equally distributed pre sampled data
+    train, test = train_test_split(df_sampled, test_size=test_size, random_state=3)
 
     feature_columns = [
         "d01_L_light",
@@ -214,11 +214,12 @@ if __name__ == "__main__":
         "d05_R_ph",
         "d06_N_nitrogen",
         "d09_LV_landcover",
-        "ellenberg_water_area",
-        "ellenberg_not_sealed_area",
+        # "ellenberg_water_area",
+        # "ellenberg_not_sealed_area",
     ]
     # Initialize the model
     model = RandomForestClassifier()
+    # model = xgb.XGBRegressor(objective="reg:squarederror")
 
     # Fit the model
     model.fit(train[feature_columns], train["occurrence"])
@@ -227,7 +228,43 @@ if __name__ == "__main__":
     pred = model.predict(test[feature_columns])
 
     # Evaluate the model
+    class_report = classification_report(
+        test["occurrence"], pred, zero_division=0, output_dict=True
+    )
     print(classification_report(test["occurrence"], pred, zero_division=0))
+
+    # use the model on the complete dataset
+    df_habitat_cube = habitat_cube.to_dataframe().dropna()
+    pred = model.predict(df_habitat_cube[feature_columns])
+    df_habitat_cube["prediction"] = pred
+    # convert to xarray DataArray
+    # use sortby to make continuous x,y axis
+    habitat_prediction = df_habitat_cube["prediction"].to_xarray().sortby("x")
+
+    ## save to file
+    # create folder for each species
+    if not os.path.exists(
+        os.environ.get("HOME") + f"/s3{base_path}/habitat_potential_map/{species_name}"
+    ):
+        os.mkdir(
+            os.environ.get("HOME")
+            + f"/s3{base_path}/habitat_potential_map/{species_name}"
+        )
+
+    habitat_prediction.attrs = habitat_cube.spatial_ref.attrs
+    habitat_prediction.rio.write_crs(2169, inplace=True)
+    habitat_prediction = habitat_prediction.where(habitat_prediction == 1, np.nan)
+    habitat_prediction.rio.to_raster(
+        os.environ.get("HOME")
+        + f"/s3{base_path}/habitat_potential_map/{species_name}/{species_name}_RandomForest_model.tif"
+    )
+
+    # also save classification report
+    df_report = pd.DataFrame(class_report).transpose()
+    df_report.to_csv(
+        os.environ.get("HOME")
+        + f"/s3{base_path}/habitat_potential_map/{species_name}/{species_name}_RandomForest_model_report.csv"
+    )
 
     m_instance.end(
         tracker=tracker,
@@ -237,8 +274,9 @@ if __name__ == "__main__":
             for k, v in globals().items()
             if type(v) is ModuleType and not k.startswith("__")
         ],
-        data_path=os.environ.get("HOME") + "/s3/" + base_path,
+        data_path=os.environ.get("HOME") + "/s3" + base_path,
         program_path=__file__,
         variables=locals(),
-        csv_file=os.environ.get('HOME')+"/uc1-urban-climate/processing/sdm/logs/ellenberg_sd_model.csv",
+        csv_file=os.environ.get("HOME")
+        + "/uc1-urban-climate/processing/sdm/logs/RandomForest_model.csv",
     )

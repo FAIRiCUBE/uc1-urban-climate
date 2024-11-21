@@ -9,18 +9,23 @@ import os
 import time
 import sys
 import numpy as np
+import cpuinfo 
 
 
 # noinspection PyAttributeOutsideInit
 class Measurer:
 
-    def __int__(self):
+    def __init__(self):
         # DONE
         self.data_size_in_grid_points = ''
         # TO DO
         self.largest_allocated_array_in_grid_points = ''
         # DONE
         self.data_size = 0
+        # DONE
+        self.data_read = 0
+        # DONE
+        self.data_written = 0
         # DONE
         self.main_memory_available = 0
         # DONE
@@ -49,6 +54,29 @@ class Measurer:
     def start_compute_wall_time(self):
         self.wall_time = time.time()
         return time
+    
+    def start_compute_disk_written(self):
+        w = psutil.disk_io_counters().write_bytes
+        self.data_written = w
+        return w
+    
+    def end_compute_disk_written(self):
+        w = psutil.disk_io_counters().write_bytes
+        o = self.data_written
+        final = w - o
+        self.data_written = final
+    
+    def start_compute_disk_read(self):
+        r = psutil.disk_io_counters().read_bytes
+        self.data_read = r
+        return r
+    
+    def end_compute_disk_read(self):
+        r = psutil.disk_io_counters().read_bytes
+        o = self.data_read
+        final = r - o
+        self.data_read = final
+        
 
     def end_compute_wall_time(self):
         t = self.wall_time
@@ -97,7 +125,7 @@ class Measurer:
         self.main_memory_available = total
         return total
 
-    def cpu_gpu_description(self):
+    def compute_cpu_gpu_description(self):
         description = ''
         # Machine type
         description = description + f"Machine type: {platform.machine()}\n"
@@ -108,17 +136,19 @@ class Measurer:
         # Logical cores
         description = description + f"Number of logical cores: {psutil.cpu_count(logical=True)}\n"
         # Min frequency
-        description = description + f"Min CPU frequency: {psutil.cpu_freq().min} GHz\n"
+        # description = description + f"Min CPU frequency: {psutil.cpu_freq().min} GHz\n"
         # Max frequency
-        description = description + f"Max CPU frequency: {psutil.cpu_freq().max} GHz\n"
+        #description = description + f"Max CPU frequency: {psutil.cpu_freq().max} GHz\n"
+        # frequency 
+        description = description + f"CPU frequency: {cpuinfo.get_cpu_info()['hz_advertised_friendly']}\n"
         # GPU
         use_cuda = torch.cuda.is_available()
         if use_cuda:
-            description = description + 'CUDNN VERSION:', torch.backends.cudnn.version() + "\n"
-            description = description + 'Number CUDA Devices:', torch.cuda.device_count() + "\n"
-            description = description + 'CUDA Device Name:', torch.cuda.get_device_name(0) + "\n"
-            description = description + 'CUDA Device Total Memory [GB]:', torch.cuda.get_device_properties(
-                0).total_memory / 1e9 + "\n"
+            description = description + 'CUDNN VERSION:' +  str(torch.backends.cudnn.version()) + "\n"
+            description = description + 'Number CUDA Devices:' + str(torch.cuda.device_count()) + "\n"
+            description = description + 'CUDA Device Name:' + str(torch.cuda.get_device_name(0)) + "\n"
+            description = description + 'CUDA Device Total Memory [MB]:' + str(round(torch.cuda.get_device_properties(
+                0).total_memory / 1e6, 2)) + "\n"
         else:
             description = description + 'No GPU available\n'
         self.cpu_gpu_description = description
@@ -133,23 +163,31 @@ class Measurer:
 
     def end_compute_co2_emissions(self, tracker):
         emissions = tracker.stop()
-        self.co2_consumed = emissions
-        return emissions
+        g_emissions = 1000*emissions
+        g_emissions = round(g_emissions, 2)
+        self.co2_consumed = g_emissions
+        return g_emissions
 
     def compute_data_size_in_grid_points(self, shape):
         if len(shape) == 0:
             self.data_size_in_grid_points = ''
             return ''
-        data_size_grid_points = str(shape[0]) + "x" + str(shape[1])
-        self.data_size_in_grid_points = data_size_grid_points
-        return data_size_grid_points
+        d = ''
+        for i in range(len(shape)):
+            if i != 0:
+                d = d + "x"
+            d = d + str(shape[i])
+        self.data_size_in_grid_points = d
+        return d
 
     def compute_energy_consumed(self):
         emissions = pd.read_csv('emissions.csv')
         kw = emissions['energy_consumed'].iloc[-1]
-        self.max_energy_consumed = kw
+        w = 1000*kw
+        w = round(w, 2)
+        self.max_energy_consumed = w
         os.remove('emissions.csv')
-        return kw
+        return w
 
     def start_compute_network_traffic(self):
         sent = psutil.net_io_counters().bytes_sent
@@ -161,7 +199,9 @@ class Measurer:
         recv = psutil.net_io_counters().bytes_recv
         new_value = sent + recv
         old_value = self.network_traffic
-        self.network_traffic = new_value - old_value
+        x = new_value - old_value
+        self.network_traffic = x
+        return x
 
     def get_essential_libraries(self, libraries, program_path):
         f = open(program_path, 'r')
@@ -193,19 +233,23 @@ class Measurer:
         csv.loc[len(csv)] = {'Measure': 'Largest allocated array in grid points ',
                              'Value': self.largest_allocated_array_in_grid_points}
         csv.loc[len(csv)] = {'Measure': 'Data size (MB)',
-                             'Value': str(utils.bytes_to(self.data_size, 'm'))}
-        csv.loc[len(csv)] = {'Measure': 'Main memory available (GB)',
-                             'Value': str(utils.bytes_to(self.main_memory_available, 'g'))}
-        csv.loc[len(csv)] = {'Measure': 'Main memory consumed (GB)',
-                             'Value': str(utils.bytes_to(self.main_memory_consumed, 'g'))}
-        csv.loc[len(csv)] = {'Measure': 'Sum of allocated variable sizes (GB)',
-                             'Value': str(utils.bytes_to(self.sum_of_allocated_variable_sizes, 'g'))}
+                             'Value': round(utils.bytes_to(self.data_size, 'm'),2)}
+        csv.loc[len(csv)] = {'Measure': 'Data read (MB)',
+                             'Value': round(utils.bytes_to(self.data_read, 'm'),2)}
+        csv.loc[len(csv)] = {'Measure': 'Data written (MB)',
+                             'Value': round(utils.bytes_to(self.data_written, 'm'),2)}
+        csv.loc[len(csv)] = {'Measure': 'Main memory available (MB)',
+                             'Value': round(utils.bytes_to(self.main_memory_available, 'm'),2)}
+        csv.loc[len(csv)] = {'Measure': 'Main memory consumed (MB)',
+                             'Value': round(utils.bytes_to(self.main_memory_consumed, 'm'), 2)}
+        csv.loc[len(csv)] = {'Measure': 'Sum of allocated variable sizes (MB)',
+                             'Value': round(utils.bytes_to(self.sum_of_allocated_variable_sizes, 'm'),2)}
         csv.loc[len(csv)] = {'Measure': 'Description of CPU/GPU', 'Value': self.cpu_gpu_description}
-        csv.loc[len(csv)] = {'Measure': 'Wall time in seconds', 'Value': self.wall_time}
-        csv.loc[len(csv)] = {'Measure': 'Energy consumed (kw)', 'Value': self.max_energy_consumed}
-        csv.loc[len(csv)] = {'Measure': 'CO₂-equivalents [CO₂eq] (kg)', 'Value': self.co2_consumed}
+        csv.loc[len(csv)] = {'Measure': 'Wall time (s)', 'Value': round(self.wall_time, 2)}
+        csv.loc[len(csv)] = {'Measure': 'Energy consumed (W)', 'Value': self.max_energy_consumed}
+        csv.loc[len(csv)] = {'Measure': 'CO₂-equivalents [CO₂eq] (g)', 'Value': self.co2_consumed}
         csv.loc[len(csv)] = {'Measure': 'Network traffic (MB)',
-                             'Value': str(utils.bytes_to(self.network_traffic, 'm'))}
+                             'Value': round(utils.bytes_to(self.network_traffic, 'm'),2)}
         # csv.loc[len(csv)] = {'Measure': 'Storage cost', 'Value': self.storage_cost}
         # csv.loc[len(csv)] = {'Measure': 'Compute cost', 'Value': self.compute_cost}
         # csv.loc[len(csv)] = {'Measure': 'Network cost', 'Value': self.network_cost}
@@ -238,6 +282,8 @@ class Measurer:
         self.start_compute_network_traffic()
         tracker = self.start_compute_co2_emissions()
         self.start_compute_data_size(data_path, aws_s3, aws_session)
+        self.start_compute_disk_written()
+        self.start_compute_disk_read()
         return tracker
 
     # end
@@ -249,12 +295,14 @@ class Measurer:
         self.compute_data_size_in_grid_points(shape)
         self.compute_energy_consumed()
         self.total_main_memory_available()
-        self.cpu_gpu_description()
+        self.compute_cpu_gpu_description()
         self.get_essential_libraries(libraries, program_path)
         self.end_compute_data_size(data_path, aws_s3, aws_session)
+        self.end_compute_disk_written()
+        self.end_compute_disk_read()
         self.end_compute_wall_time()
         self.compute_variable_sizes(variables)
         csv = self.write_out(csv_file)
         if logger is not None:
-            logger.info("Stopped computational costs meter. Results saved at" + csv_file)
+            logger.info("Stopped computational costs meter. Results saved at" , csv_file)
         print(csv)
