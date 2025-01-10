@@ -10,3 +10,4 @@ database.ini
 *.pyc
 src/__pycache__/
 src.egg-info/
+.venv
