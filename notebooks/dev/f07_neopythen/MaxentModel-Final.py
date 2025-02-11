@@ -171,6 +171,12 @@ cube_09_2_LF_non_sealed = cube_09_LF_x_non_sealed.to_dataset(name='ellenberg_not
 #cube_09_LF_non_sealed
 
 
+## NEW - not management buffer: area on in around roads, railways and water -buffered by 10m
+d10_not_management_buffer= os.path.join(base_path, 'hip_b1_v2.tif')
+cube_10_not_maagement_buffer = rxr.open_rasterio(d10_not_management_buffer)
+cube_10_not_maagement_buffer = cube_10_not_maagement_buffer.to_dataset(name='d10_not_management_buffer')## 
+
+
 
 print ("----------------Data Uploaded----------------")
 
@@ -186,8 +192,9 @@ c_6 = cube_06_N
 c_7 = cube_09__temp_LF 
 c_8 = cube_09_1_LF_water 
 c_9 = cube_09_2_LF_non_sealed 
+c_10=cube_10_not_maagement_buffer
 
-habitat_parameter_cube = xr.merge([c_1, c_2, c_3, c_5, c_6,c_7, c_8, c_9])
+habitat_parameter_cube = xr.merge([c_1, c_2, c_3, c_5, c_6,c_7, c_8, c_9,c_10])
 #habitat_parameter_cube=habitat_parameter_cube.squeeze()
 
 
