@@ -5,11 +5,11 @@ from sqlalchemy import create_engine, text # conection to the database
 import os
 import glob
 import matplotlib.pyplot as plt
-# import elapid
+import elapid
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 import rioxarray as rxr
-# import shap  
+import shap
 import matplotlib.patches as mpatches
 from src import db_connect
 
@@ -40,43 +40,30 @@ species_list = [
 'Heracleum Mantegazzianum'       
 ]
 
-
-# # reading raster from CWS:
-
+# # reading raster from CWS:--------------------------------------------------------------
 ##  base folder on CWS:
 base_path = os.environ.get("HOME") +"/s3/data/d012_luxembourg/"
 
-
-## Datasets 01 Lichtzahl:-------------------------------------------
+## Datasets 01 SHADOW:-------------------------------------------
 d01_L_parameter = os.path.join(base_path, 'shadow_2019_10m_b1.tif')
 print(d01_L_parameter)
 # Open the file:
 cube_01_L = rxr.open_rasterio(d01_L_parameter)
 cube_01_L = cube_01_L.to_dataset(name='d01_L_light')
 
-### Dataset 02 Feuchtezahl :-------------------------------------------
+### Dataset 02 WETNESS :-------------------------------------------
 d02_F_parameter = os.path.join(base_path, 'twi_2019_10m_b1.tif')
 print(d02_F_parameter)
 # Open the file:
 cube_02_F = rxr.open_rasterio(d02_F_parameter)
 cube_02_F = cube_02_F.to_dataset(name='d02_F_wetness')
 
-### Dataset 03 Temperatur:-----------------------------------------------------------------------------------------------------------S
+### Dataset 03 TEMPERATURE:-----------------------------------------------------------------------------------------------------------S
 ### monthly temp for 2017
 d03_T_parameter_2017 = os.path.join(base_path, 'air_temperature_2017_month_mean_10m_b12.tif')
 cube_03_temperature_2017 = rxr.open_rasterio(d03_T_parameter_2017)
 cube_03_temperature_2017 = cube_03_temperature_2017.to_dataset(name='d03_T_parameter_2017')
 cube_03_temperature_2017 = cube_03_temperature_2017.mean(dim='band')
-
-
-# ## Dataset 04 Kontinentaliätzahl:-------------------------------------------
-# d04_K_parameter = os.path.join(base_path, 'air_temperature_2017_month_mean_10m_b12.tif')
-# print(d04_K_parameter)
-# # Open the file:
-# cube_04_K = rxr.open_rasterio(d04_K_parameter)
-# cube_04_K = cube_04_K.to_dataset(name='d04_K_continentality')
-# cube_04_K= cube_04_K.mean(dim='band')  # mean
-
 
 ### Dataset 05 Reaktionszahl (ph):-------------------------------------------
 d05_R_parameter = os.path.join(base_path, 'pH_CaCl_10m_b1.tif')
@@ -85,34 +72,20 @@ print(d05_R_parameter)
 cube_05_R = rxr.open_rasterio(d05_R_parameter)
 cube_05_R = cube_05_R.to_dataset(name='d05_R_ph')
 
-## ### Dataset 06 Stickstoff:-------------------------------------------
+## ### Dataset 06 N:-------------------------------------------
 d06_N_parameter = os.path.join(base_path, 'soil_nitrat_10m_b1.tif')
 print(d06_N_parameter)
 ## # Open the file:
 cube_06_N = rxr.open_rasterio(d06_N_parameter)
 cube_06_N = cube_06_N.to_dataset(name='d06_N_nitrogen')## 
 
-# # ### Dataset 07 Salz:------------------------------------------- NO DATA ()
-# # d07_S_parameter = os.path.join(base_path, 'xxx.tif')
-# # print(d07_S_parameter)
-# # # Open the file:
-# # cube_07_S = rxr.open_rasterio(d07_S_parameter)
-# # cube_07_S = cube_07_S.to_dataset(name='d07_S_salt')## 
-
-# # ### Dataset 08 Schwermetall:-------------------------------------------  NO DATA ()
-# # d08_HM_parameter = os.path.join(base_path, 'xxx.tif')
-# # print(d08_HM_parameter)
-# # # Open the file:
-# # cube_08_HM = rxr.open_rasterio(d08_HM_parameter)
-# # cube_08_HM = cube_08_HM.to_dataset(name='d08_HM_heavy_metal')
-
-### Dataset 09 Lebensform:-------------------------------------------
+### Dataset 09 : Land cover -water surface:-------------------------------------------
 d09_watersurface_raster = os.path.join(base_path, 'land_cover_2021_10m_b1.tif')
 cube_09__temp_LF = rxr.open_rasterio(d09_watersurface_raster)
 #print(cube_09__temp_LF)
 cube_09__temp_LF = cube_09__temp_LF.to_dataset(name='d09_LV_landcover')
 
-# -- landcover_code	landcover_name
+# -- landcover_code	landcover_name LEGEND:
 # -- 10	buildings
 # -- 20	other constructed areas
 # -- 30	bare soil
@@ -124,16 +97,16 @@ cube_09__temp_LF = cube_09__temp_LF.to_dataset(name='d09_LV_landcover')
 # -- 92	seasonal herbaceous vegetation
 # -- 93	vineyards
 
-
 ds = cube_09__temp_LF
 d09_LF_parameter_temp_water_area =    xr.where(ds['d09_LV_landcover'] == 60, 1, 0) # Else set to 0
 # Adding the result back to the dataset (optional)
 cube_09__temp_LF['ellenberg_water_area'] = d09_LF_parameter_temp_water_area
 
+#cube_09_LF_water
 cube_09_LF_x = cube_09__temp_LF['ellenberg_water_area'] 
 cube_09_1_LF_water = cube_09_LF_x.to_dataset(name='ellenberg_water_area')
-#cube_09_LF_water
 
+### NON SEALED AREAS:
 d09_LF_parameter_temp_not_sealed =    xr.where(ds['d09_LV_landcover'].isin ([30,70,71,80,91,92,93]), 1, 0) # Else set to 0
 # Adding the result back to the dataset (optional)
 cube_09__temp_LF['ellenberg_not_sealed_area'] = d09_LF_parameter_temp_not_sealed
@@ -142,22 +115,17 @@ cube_09_2_LF_non_sealed = cube_09_LF_x_non_sealed.to_dataset(name='ellenberg_not
 #cube_09_LF_non_sealed
 
 
-## NEW - not management buffer: area on in around roads, railways and water -buffered by 10m
+##  Management buffer: area on in around roads, railways and water -buffered by 10m
 d10_not_management_buffer= os.path.join(base_path, 'hip_b1_v2.tif')
 cube_10_not_maagement_buffer = rxr.open_rasterio(d10_not_management_buffer)
 cube_10_not_maagement_buffer = cube_10_not_maagement_buffer.to_dataset(name='d10_not_management_buffer')## 
 
-
-
 print ("----------------Data Uploaded----------------")
 
-
 # the following code set up ONE datacube with the raw data - (only to be used for model -tuning in the moment)
-
 c_1 = cube_01_L 
 c_2 = cube_02_F 
 c_3 = cube_03_temperature_2017 
-#c_4 = cube_04_K 
 c_5 = cube_05_R
 c_6 = cube_06_N 
 c_7 = cube_09__temp_LF 
@@ -165,10 +133,8 @@ c_8 = cube_09_1_LF_water
 c_9 = cube_09_2_LF_non_sealed 
 c_10=cube_10_not_maagement_buffer
 
-habitat_parameter_cube = xr.merge([c_1, c_2, c_3, c_5, c_6,c_7, c_8, c_9,c_10])
+habitat_parameter_cube = xr.merge([c_1, c_2, c_3, c_5, c_6,c_7, c_8, c_9,c_10])  ### FULL CUBE with all paramter - resolution 10m 
 #habitat_parameter_cube=habitat_parameter_cube.squeeze()
-
-
 
 # the following code set up ONE datacube with the raw data - (only to be used for model -tuning in the moment)
 
@@ -238,10 +204,33 @@ for species in species_list:
 
     species_occ_df[species_occ_df['species_name']==species]
 
-
-
-
     # pseudo absence data:
+
+    ## reading the FULL CUBE for Luxembourg and filter out region where not plant grow is possible (water & sealed areas)
+    background_cube = xr.merge([c_1, c_2, c_3, c_5, c_6,c_7, c_8, c_9])
+    background_cube =  background_cube.where((background_cube['ellenberg_water_area'] ==0) & (background_cube['ellenberg_not_sealed_area'] == 1), 0)
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # SQL query to select points where species does NOT occur but share the same grid coordinates
     with engine_postgresql.connect() as connection:
         query_non_occ = text(f"""
