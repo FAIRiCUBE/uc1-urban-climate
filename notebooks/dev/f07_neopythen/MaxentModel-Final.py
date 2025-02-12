@@ -1,52 +1,23 @@
 import numpy as np
-from glob import glob
-from pathlib import Path
-import geopandas as gpd
-from shapely.geometry import Point
-from pathlib import Path, WindowsPath
 import pandas as pd
 import xarray as xr
-from configparser import ConfigParser
-import sqlalchemy as sa # conection to the database
-from sqlalchemy import create_engine, text
-from datetime import datetime, timedelta
+from sqlalchemy import create_engine, text # conection to the database
 import os
-import xgboost as xgb
+import glob
 import matplotlib.pyplot as plt
-from sklearn.metrics import mean_squared_error, r2_score
-from scipy.ndimage import gaussian_filter
-import elapid
-from sklearn.impute import SimpleImputer
+# import elapid
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 import rioxarray as rxr
-import shap  
+# import shap  
 import matplotlib.patches as mpatches
-
-
+from src import db_connect
 
 print ("Libraries loaded")
 
 # connect to DATABASE server: 
-
-def config(filename, section='postgresql'):
-    # create a parser
-    parser = ConfigParser()
-    # read config file
-    parser.read(filename)
-
-    # get section, default to postgresql
-    db = {}
-    if parser.has_section(section):
-        params = parser.items(section)
-        for param in params:
-            db[param[0]] = param[1]
-    else:
-        raise Exception(
-            'Section {0} not found in the {1} file'.format(section, filename))
-
-    return db
-keys = config(filename='database_nilu.ini')
+database_config_path = glob.glob(os.environ.get("HOME")+'/uc1-urban-climate/database*.ini')[0]
+keys = db_connect.config(filename=database_config_path)
 POSTGRESQL_SERVER_NAME=keys['host']
 PORT=                  keys['port']
 Database_name =        keys['database']
@@ -54,7 +25,7 @@ USER =                 keys['user']
 PSW =                  keys['password']
 ##################################################
 
-engine_postgresql = sa.create_engine('postgresql://'+USER+':'+PSW+ '@'+POSTGRESQL_SERVER_NAME+':'+str(PORT)+ '/' + Database_name)
+engine_postgresql = create_engine('postgresql://'+USER+':'+PSW+ '@'+POSTGRESQL_SERVER_NAME+':'+str(PORT)+ '/' + Database_name)
 print (engine_postgresql)
 connection = engine_postgresql.raw_connection()
 cursor = connection.cursor()
@@ -253,11 +224,12 @@ for species in species_list:
     print (species_name)
 
     #Fallopia_Japonica
-    query = """
-    SELECT *
-    FROM luxembourg_species.neophytes_geometry
-    """
-    species_occ_df = pd.read_sql(query, engine_postgresql)
+    with engine_postgresql.connect() as connection:
+        query = text("""
+            SELECT *
+            FROM luxembourg_species.neophytes_geometry
+        """)
+        species_occ_df = pd.read_sql_query(query, connection)
 
     species_occ_df = species_occ_df[species_occ_df['species_name']==species]
 
@@ -271,18 +243,19 @@ for species in species_list:
 
     # pseudo absence data:
     # SQL query to select points where species does NOT occur but share the same grid coordinates
-    query_non_occ = f"""
-    SELECT *
-    FROM luxembourg_species.neophytes_geometry
-    WHERE species_name != '{species}'
-    AND (gridnum2169_10m_x, gridnum2169_10m_y) NOT IN (
-        SELECT gridnum2169_10m_x, gridnum2169_10m_y
+    with engine_postgresql.connect() as connection:
+        query_non_occ = text(f"""
+            SELECT *
         FROM luxembourg_species.neophytes_geometry
-        WHERE species_name = '{species}'
-    );
-    """
-    # Fetch the non-occurrence data into a Pandas DataFrame
-    non_occ_df_all = pd.read_sql(query_non_occ, engine_postgresql)
+        WHERE species_name != '{species}'
+        AND (gridnum2169_10m_x, gridnum2169_10m_y) NOT IN (
+            SELECT gridnum2169_10m_x, gridnum2169_10m_y
+            FROM luxembourg_species.neophytes_geometry
+            WHERE species_name = '{species}'
+        )
+        """)
+        # Fetch the non-occurrence data into a Pandas DataFrame
+        non_occ_df_all = pd.read_sql_query(query_non_occ, connection)
 
     x_coords_da = xr.DataArray(x_coords)
     y_coords_da = xr.DataArray(y_coords)
