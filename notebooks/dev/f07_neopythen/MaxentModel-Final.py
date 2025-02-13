@@ -6,11 +6,11 @@ from sqlalchemy import create_engine, text # conection to the database
 import os
 import glob
 import matplotlib.pyplot as plt
-import elapid
+# import elapid
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 import rioxarray as rxr
-import shap
+# import shap
 import matplotlib.patches as mpatches
 from src import db_connect
 
@@ -187,10 +187,8 @@ plt.tight_layout
 for species in species_list:
     print(f"---------{species} Selected------------")
     species_name = species.replace(" ", "_")
-    #print (species_name)
     print (species_name)
 
-    #Fallopia_Japonica
     with engine_postgresql.connect() as connection:
         query = text("""
             SELECT *
@@ -202,107 +200,48 @@ for species in species_list:
 
     x_coords = species_occ_df["gridnum2169_10m_x"].values
     y_coords = species_occ_df["gridnum2169_10m_y"].values
-
-    species_occ_df[species_occ_df['species_name']==species]
-
-    # pseudo absence data:
-
-    ## reading the FULL CUBE for Luxembourg and filter out region where not plant grow is possible (water & sealed areas)
-    background_cube = xr.merge([c_1, c_2, c_3, c_5, c_6,c_7, c_8, c_9])
-    background_cube =  background_cube.where((background_cube['ellenberg_water_area'] ==0) & (background_cube['ellenberg_not_sealed_area'] == 1), 0)
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # SQL query to select points where species does NOT occur but share the same grid coordinates
-    with engine_postgresql.connect() as connection:
-        query_non_occ = text(f"""
-            SELECT *
-        FROM luxembourg_species.neophytes_geometry
-        WHERE species_name != '{species}'
-        AND (gridnum2169_10m_x, gridnum2169_10m_y) NOT IN (
-            SELECT gridnum2169_10m_x, gridnum2169_10m_y
-            FROM luxembourg_species.neophytes_geometry
-            WHERE species_name = '{species}'
-        )
-        """)
-        # Fetch the non-occurrence data into a Pandas DataFrame
-        non_occ_df_all = pd.read_sql_query(query_non_occ, connection)
-
+    # convert coordinates in xarray coordinates
     x_coords_da = xr.DataArray(x_coords)
     y_coords_da = xr.DataArray(y_coords)
 
-    # merge
-    xds_merged = habitat_parameter_cube
-
-    nearest_habitat_values = xds_merged.sel(
+    nearest_habitat_values = habitat_parameter_cube.sel(
         x=x_coords_da,
         y=y_coords_da,
         method="nearest"
     )
-
     # Convert to DataFrame and merge with occurrence data
     nearest_habitat_df = nearest_habitat_values.to_dataframe().reset_index()
     nearest_habitat_df[species] = True
+    print(f"Size of {species} presence points = {len(nearest_habitat_df)}")
 
-    print(f"Size of {species} prsence points = {len(nearest_habitat_df)}")
+    # pseudo absence data:
+    ## reading the FULL CUBE for Luxembourg and filter out region where not plant grow is possible (water & sealed areas)
+    background_cube = xr.merge([c_1, c_2, c_3, c_5, c_6,c_7, c_8, c_9])
+    background_cube =  background_cube.sel(band=1).where((background_cube['ellenberg_water_area'] ==0) & (background_cube['ellenberg_not_sealed_area'] == 1), 0)
 
+    # filter our location where species has occurred
+    # get coordinates from occurrence cube
+    x_coords_grid = list(nearest_habitat_values.x.values)
+    y_coords_grid = list(nearest_habitat_values.y.values)
 
-    #Select data from the SQL table (with species different than the selected one + different from any location in the species data)
-    #Specify number of background points 
-    nb_background = 10*len(nearest_habitat_df)  ### why 3
-    non_occ_df = non_occ_df_all#.sample(n=nb_background) 
-    print(f"Background data size= {len(non_occ_df)}")
-    
-    x_non_occ_coords = non_occ_df['gridnum2169_10m_x'].values
-    y_non_occ_coords = non_occ_df['gridnum2169_10m_y'].values   
-
-
-    x_selected = x_non_occ_coords
-    y_selected = y_non_occ_coords   
-
-    x_selected_da = xr.DataArray(x_selected)
-    y_selected_da = xr.DataArray(y_selected)    
-
-    # Step 3: Extract habitat values for the selected non-occurrence coordinates
-    non_occ_habitat_values = xds_merged.sel(
-        x=x_selected_da,
-        y=y_selected_da,
-        method="nearest"
-    )   
-
-
-
+    # Create a boolean mask for species occurrences
+    mask = background_cube.assign(mask=lambda x: (x.d01_L_light * 0 + 1).astype(bool)).drop_vars(background_cube.keys())
+    mask.mask.loc[dict(x=x_coords_grid, y=y_coords_grid)] = False
+    # set locations of species occurrence to na
+    background_habitat_values = background_cube.where(mask.mask)
     # Step 4: Convert the non-occurrence habitat data to a DataFrame
-    non_occ_habitat_df = non_occ_habitat_values.to_dataframe().reset_index()    
-
+    background_habitat_df = background_habitat_values.to_dataframe().reset_index()
+    # drop na values
+    background_habitat_df.dropna(inplace=True)
     # Step 5: Mark these samples as "False" for species presence
-    non_occ_habitat_df[species] = False 
+    background_habitat_df[species] = False 
 
-    #non_occ_habitat_df.to_csv('background_' + species + '.csv', index=False)
+    print(f"Size of background points = {len(background_habitat_df)}")
 
     ## (3) MAXENT (Elapid)Machine Learning for Modeling species distribution 
     ## MAXENT: data preparation
     # Rename columns for consistency
-    background_data = non_occ_habitat_df.rename(columns={'x': 'longitude', 'y': 'latitude'})
+    background_data = background_habitat_df.rename(columns={'x': 'longitude', 'y': 'latitude'})
     presence_data = nearest_habitat_df.rename(columns={'x': 'longitude', 'y': 'latitude'})
     background_data = background_data.replace(-9999, np.nan)
     presence_data = presence_data.replace(-9999, np.nan)
