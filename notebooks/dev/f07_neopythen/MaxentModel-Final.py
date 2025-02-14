@@ -12,12 +12,17 @@ from sklearn.model_selection import train_test_split
 import rioxarray as rxr
 # import shap
 import matplotlib.patches as mpatches
+import sys
+project_root = os.path.abspath("../../..")
+sys.path.append(project_root)
 from src import db_connect
+import elapid
+import shap
 
 print ("Libraries loaded")
 
 # connect to DATABASE server: 
-database_config_path = glob.glob(os.environ.get("HOME")+'/uc1-urban-climate/database*.ini')[0]
+database_config_path = glob.glob(os.environ.get("HOME")+'/database*.ini')[0]
 keys = db_connect.config(filename=database_config_path)
 POSTGRESQL_SERVER_NAME=keys['host']
 PORT=                  keys['port']
@@ -33,7 +38,7 @@ cursor = connection.cursor()
 connection.commit()
 print ("Connected to SQL")
 
-
+# Select species
 species_list = [
 'Robinia Pseudoacacia', 
 'Fallopia Japonica', 
@@ -41,25 +46,25 @@ species_list = [
 'Heracleum Mantegazzianum'       
 ]
 
-# # reading raster from CWS:--------------------------------------------------------------
+# # reading raster from CWS:-----------------------------------------------
 ##  base folder on CWS:
 base_path = os.environ.get("HOME") +"/s3/data/d012_luxembourg/"
 
-## Datasets 01 SHADOW:-------------------------------------------
+## Datasets 01 SHADOW:-----------------------------------------------------
 d01_L_parameter = os.path.join(base_path, 'shadow_2019_10m_b1.tif')
 print(d01_L_parameter)
 # Open the file:
 cube_01_L = rxr.open_rasterio(d01_L_parameter)
 cube_01_L = cube_01_L.to_dataset(name='d01_L_light')
 
-### Dataset 02 WETNESS :-------------------------------------------
+### Dataset 02 WETNESS :----------------------------------------------------
 d02_F_parameter = os.path.join(base_path, 'twi_2019_10m_b1.tif')
 print(d02_F_parameter)
 # Open the file:
 cube_02_F = rxr.open_rasterio(d02_F_parameter)
 cube_02_F = cube_02_F.to_dataset(name='d02_F_wetness')
 
-### Dataset 03 TEMPERATURE:-----------------------------------------------------------------------------------------------------------S
+### Dataset 03 TEMPERATURE:--------------------------------------------------
 ### monthly temp for 2017
 d03_T_parameter_2017 = os.path.join(base_path, 'air_temperature_2017_month_mean_10m_b12.tif')
 cube_03_temperature_2017 = rxr.open_rasterio(d03_T_parameter_2017)
@@ -80,10 +85,9 @@ print(d06_N_parameter)
 cube_06_N = rxr.open_rasterio(d06_N_parameter)
 cube_06_N = cube_06_N.to_dataset(name='d06_N_nitrogen')## 
 
-### Dataset 09 : Land cover -water surface:-------------------------------------------
+### Dataset 09 : Land cover -water surface:-----------------------------------
 d09_watersurface_raster = os.path.join(base_path, 'land_cover_2021_10m_b1.tif')
 cube_09__temp_LF = rxr.open_rasterio(d09_watersurface_raster)
-#print(cube_09__temp_LF)
 cube_09__temp_LF = cube_09__temp_LF.to_dataset(name='d09_LV_landcover')
 
 # -- landcover_code	landcover_name LEGEND:
@@ -113,8 +117,6 @@ d09_LF_parameter_temp_not_sealed =    xr.where(ds['d09_LV_landcover'].isin ([30,
 cube_09__temp_LF['ellenberg_not_sealed_area'] = d09_LF_parameter_temp_not_sealed
 cube_09_LF_x_non_sealed = cube_09__temp_LF['ellenberg_not_sealed_area'] 
 cube_09_2_LF_non_sealed = cube_09_LF_x_non_sealed.to_dataset(name='ellenberg_not_sealed_area')
-#cube_09_LF_non_sealed
-
 
 ##  Management buffer: area on in around roads, railways and water -buffered by 10m
 d10_not_management_buffer= os.path.join(base_path, 'hip_b1_v2.tif')
@@ -212,7 +214,7 @@ for species in species_list:
     # Convert to DataFrame and merge with occurrence data
     nearest_habitat_df = nearest_habitat_values.to_dataframe().reset_index()
     nearest_habitat_df[species] = True
-    print(f"Size of {species} presence points = {len(nearest_habitat_df)}")
+    
 
     # pseudo absence data:
     ## reading the FULL CUBE for Luxembourg and filter out region where not plant grow is possible (water & sealed areas)
@@ -231,14 +233,20 @@ for species in species_list:
     background_habitat_values = background_cube.where(mask.mask)
     # Step 4: Convert the non-occurrence habitat data to a DataFrame
     background_habitat_df = background_habitat_values.to_dataframe().reset_index()
+    
+    background_ratio = 20  # Adjust as needed (10-50 recommended)
+    target_bg_size = min(len(background_habitat_df), background_ratio * len(nearest_habitat_df))
+
+    # Randomly sample background points to balance with presence points
+    background_habitat_df = background_habitat_df.sample(n=target_bg_size, random_state=42)
     # drop na values
     background_habitat_df.dropna(inplace=True)
     # Step 5: Mark these samples as "False" for species presence
     background_habitat_df[species] = False 
 
-    print(f"Size of background points = {len(background_habitat_df)}")
+    
 
-    ## (3) MAXENT (Elapid)Machine Learning for Modeling species distribution 
+    ## (3) MAXENT (Elapid) Machine Learning for Modeling species distribution 
     ## MAXENT: data preparation
     # Rename columns for consistency
     background_data = background_habitat_df.rename(columns={'x': 'longitude', 'y': 'latitude'})
@@ -256,41 +264,17 @@ for species in species_list:
     # Combine the data into one dataset
     combined_data = pd.concat([presence_data, background_data], ignore_index=True)
     labels = np.concatenate([presence_labels, background_labels])
-
+    
+    print(f"Size of presence points = {len(presence_data)}")
+    print(f"Size of background points = {len(background_data)}")
     print(f"All data size: {len(combined_data)}")
     # Select environmental variables (excluding species and coordinates)
-    features = combined_data.drop(columns=[species, 'longitude', 'latitude', 'band', 'dim_0', 'spatial_ref'])
+    features = combined_data.drop(columns=[species, 'longitude', 'latitude', 'band', 'dim_0', 'spatial_ref', 'd10_not_management_buffer'])
 
 
     print(f"Number of features = {len(features.columns)}")
 
-    print('################### Maxent 1: 80-20 split on all the data #########################')
-    X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.2, random_state=42)    # 80 % Training, 20% QC data
-
-
-    # Step 3: Train the Maxent model
-    maxent = elapid.MaxentModel()
-    maxent.fit(X_train, y_train)
-
-    # Step 4: Make predictions
-    y_pred_MX1 = maxent.predict(X_test)
-
-    # Step 5: Evaluate the model
-    auc_score = roc_auc_score(y_test, y_pred_MX1)
-    print(f"Maxent AUC Score: {auc_score}")
-    X_test['prediction'] = y_pred_MX1
-
-    ##MAXENT: #### (3.1.1)- Train on all data
-    maxent = elapid.MaxentModel()
-    maxent.fit(features, labels)
-
-    # Step 4: Make predictions
-    pred_prob = maxent.predict(features)
-    # Step 5: Evaluate the model
-    auc_score = roc_auc_score(labels, pred_prob)
-    print(f"Maxent 1 AUC Score: {auc_score}")
-
-    print('################### Maxent2: that trains on: Part of the positives + all background data and tests on: the second part of positives + all background data  #########################')
+    print('################### Maxent model 1: for testing#########################')
     ## MAXENT (3.1.2)- Maxent that trains on: Part of the positives + all background data and tests on: the second part of positives + all background data
     # Step 1: Split presence data into training and testing sets
     presence_indices = np.where(labels == 1)[0]  # Indices for presence points
@@ -310,6 +294,7 @@ for species in species_list:
     X_test = features.iloc[test_indices]
     y_test = np.concatenate([np.ones(len(presence_test_idx)), np.zeros(np.where(labels == 0)[0].shape[0])])
 
+    
     # Train the Maxent model
     maxent = elapid.MaxentModel()
     maxent.fit(X_train, y_train)
@@ -319,26 +304,18 @@ for species in species_list:
 
     # Evaluate using AUC
     auc_score = roc_auc_score(y_test, y_pred_prob)
-    print(f"Maxent 2 AUC Score: {auc_score}")
+    print(f"Maxent AUC Score: {auc_score}")
 
     
     ##################################Train on all#####################################
+    print('################### Maxent model 2: for deployement #########################')
     # Train the Maxent model
     maxent = elapid.MaxentModel()
     maxent.fit(features, labels)
 
-    # Predict suitability scores for the test set
-    y_pred_prob = maxent.predict(features)
-
-    # Evaluate using AUC--NOT REPRESENTATIVE
-    auc_score = roc_auc_score(labels, y_pred_prob )
-    print(f"Maxent ALL AUC Score: {auc_score}")
-
-    ######################################################################## SHAP for explaning ################################################################################
+    ############################### SHAP for explaning #################################
     shap_sample = True  # Run only on a selected sample of size sample_size, otherwise run on all
-    sample_size = 400
-
-    shap_detailed = True # Run explanation for all each data point, otherwise a global explanation with correlation
+    sample_size = 1000
 
     # Define predict function for Maxent suitability maps 
     def predict_suitability(X):
@@ -348,9 +325,6 @@ for species in species_list:
         #print("Input to predict_suitability (shape):", X.shape) 
         # Predict suitability values (continuous outputs)
         return maxent.predict(X).flatten()
-
-
-    print("Features/points Shape:", features.shape)
 
     if shap_sample:
         sample_features = shap.sample(features, sample_size, random_state=42)
@@ -364,6 +338,7 @@ for species in species_list:
     # Generate SHAP values
     shap_values = explainer.shap_values(sample_features)
 
+    
 
     plt.figure(figsize=(10, 8))
     shap.summary_plot(shap_values, sample_features, show=False)
@@ -372,11 +347,11 @@ for species in species_list:
 
     # Save the SHAP summary plot
     if shap_sample:
-        plt.savefig(f"Shap_summary_plot_{species} _Detailed_Sample_{sample_size}.png", dpi=300)
+        plt.savefig(f"plots/Shap_summary_plot_{species} _Detailed_Sample_{sample_size}.png", dpi=300)
         plt.close()
         print(f"SHAP summary plot saved as 'Shap_summary_plot_{species} _Detailed_Sample_{sample_size}.png")
     else:
-        plt.savefig("Shap_summary_plot_" +species + "_Detailed_All.png", dpi=300)
+        plt.savefig("plots/Shap_summary_plot_" +species + "_Detailed_All.png", dpi=300)
         plt.close()
         print(f"SHAP summary plot saved as 'Shap_feature_importance_{species}_Detailed_all.png'")
 
@@ -406,7 +381,7 @@ for species in species_list:
     sorted_correlation_values = feature_importance_df['Correlation'].values
 
     # 🔹 **Assign colors AFTER sorting**
-    colors = ['blue' if corr > 0 else 'red' for corr in sorted_correlation_values]
+    colors = ['green' if corr > 0 else 'orange' for corr in sorted_correlation_values]
 
     # Plot feature importance
     plt.figure(figsize=(10, 6))
@@ -414,7 +389,6 @@ for species in species_list:
     plt.xlabel('Mean Absolute SHAP Value')
     plt.title(f'Global Feature Importance for Maxent Suitability ({species})')
 
-    # 🔹 **Ensure correlation values appear correctly inside each corresponding bar**
     for bar, corr in zip(bars, sorted_correlation_values):
         plt.text(
             bar.get_width() / 2,  # Position in the middle of the bar
@@ -426,10 +400,9 @@ for species in species_list:
             fontweight='bold'
         )
 
-    # Add legend for color interpretation
     legend_patches = [
-        mpatches.Patch(color='blue', label='Higher values increase suitability'),
-        mpatches.Patch(color='red', label='Lower values increase suitability')
+        mpatches.Patch(color='green', label='Higher values increase suitability'),
+        mpatches.Patch(color='orange', label='Lower values increase suitability')
     ]
     plt.legend(handles=legend_patches, loc='lower right')
 
@@ -438,55 +411,13 @@ for species in species_list:
 
     # Save the plot
     if shap_sample:
-        filename = f"Global_shap_feature_importance_{species}_Sample_{sample_size}.png"
+        filename = f"plots/Global_shap_feature_importance_{species}_Sample_{sample_size}.png"
     else:
-        filename = f"Global_shap_feature_importance_{species}_All.png"
+        filename = f"plots/Global_shap_feature_importance_{species}_All.png"
 
     plt.savefig(filename, dpi=300)
     plt.close()
     print(f"Global SHAP feature importance plot saved as '{filename}'")
 
-
-
-    ############## Save in database#################    
-
-    ##MAXENT: now we use the model (maxent) to calculate all pixel of the full city dataset.:
-    # Convert to DataFrame
-#     df_full_cube = habitat_parameter_cube.to_dataframe().reset_index()
-#     # remove not needed columns for model use:
-#     df_features_all = df_full_cube.drop(columns=['x', 'y', 'band', 'spatial_ref'])
-#     # Step 4: Make predictions
-#     y_pred_full = maxent.predict(df_features_all)
-#     df_full_cube['prediction'] = y_pred_full
-#     #using pandas to mask out:
-#     # Update 'prediction' column based on the condition
-#     df_full_cube.loc[(df_full_cube['ellenberg_not_sealed_area'] == 0) | (df_full_cube['ellenberg_water_area'] == 1), 'prediction'] = 0
-
-
-
-
-#     df_full_cube2 = df_full_cube[['x', 'y', 'prediction']].dropna()
-
-#     # Create a GeoDataFrame from results with points:
-#     geometry = [Point(xy) for xy in zip(df_full_cube2['x'], df_full_cube2['y'])]
-#     gdf = gpd.GeoDataFrame(df_full_cube2, geometry=geometry)
-#     # Set a coordinate reference system (CRS) (LUREF - 2169)
-#     gdf.set_crs(epsg=2169, inplace=True)
-
-#     ### data storing on database
-
-#     # Write DataFrame to PostgreSQL table
-#     table_name =  species_name + '_maxent_distribution_v2'
-#     schema_name = 'luxembourg_species'
-
-#     # gdf.to_postgis(table_name, engine_postgresql, if_exists='replace', index=False)
-#     gdf.to_postgis(table_name, engine_postgresql, schema=schema_name, if_exists='replace', index=False)
-
-#     print(f"Table with geometry written to table '{schema_name}.{table_name}' in PostGIS.")
-
-
-    #  break
-
-
-print ("loop done")
+print ("THE END....")
 
