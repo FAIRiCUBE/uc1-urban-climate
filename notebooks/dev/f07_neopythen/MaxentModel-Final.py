@@ -234,11 +234,19 @@ for species in species_list:
     # Step 4: Convert the non-occurrence habitat data to a DataFrame
     background_habitat_df = background_habitat_values.to_dataframe().reset_index()
     
-    background_ratio = 20  # Adjust as needed (10-50 recommended)
+    feature_columns = ['d01_L_light', 'd02_F_wetness', 'd03_T_parameter_2017', 
+                       'd05_R_ph', 'd06_N_nitrogen', 'd09_LV_landcover', 
+                       'ellenberg_water_area', 'ellenberg_not_sealed_area']
+
+    # Ensure that we keep only rows where at least one feature column is non-zero
+    background_habitat_df = background_habitat_df.loc[(background_habitat_df[feature_columns] != 0).any(axis=1)]
+
+    # Randomly sample background points after filtering
+    background_ratio = 20  # Adjust as needed
     target_bg_size = min(len(background_habitat_df), background_ratio * len(nearest_habitat_df))
 
-    # Randomly sample background points to balance with presence points
     background_habitat_df = background_habitat_df.sample(n=target_bg_size, random_state=42)
+    
     # drop na values
     background_habitat_df.dropna(inplace=True)
     # Step 5: Mark these samples as "False" for species presence
@@ -314,8 +322,7 @@ for species in species_list:
     maxent.fit(features, labels)
 
     ############################### SHAP for explaning #################################
-    shap_sample = True  # Run only on a selected sample of size sample_size, otherwise run on all
-    sample_size = 1000
+    sample_size = 100
 
     # Define predict function for Maxent suitability maps 
     def predict_suitability(X):
@@ -326,36 +333,34 @@ for species in species_list:
         # Predict suitability values (continuous outputs)
         return maxent.predict(X).flatten()
 
-    if shap_sample:
-        sample_features = shap.sample(features, sample_size, random_state=42)
-        print("Sample Features/points Shape:", sample_features.shape)
-    else:
-        sample_features = features
+   
+    sample_features = shap.sample(features, sample_size, random_state=42)
+    print("Sample Features/points Shape:", sample_features.shape)
+
+        
+    print(sample_features)
 
     # Create explained
-    explainer = shap.KernelExplainer(predict_suitability, sample_features)
+    explainer = shap.KernelExplainer(predict_suitability, features)
 
     # Generate SHAP values
     shap_values = explainer.shap_values(sample_features)
-
     
-
+    
     plt.figure(figsize=(10, 8))
     shap.summary_plot(shap_values, sample_features, show=False)
     plt.title("SHAP Summary Plot for Maxent ("+species +")")
     plt.tight_layout()
+    
 
     # Save the SHAP summary plot
-    if shap_sample:
-        plt.savefig(f"plots/Shap_summary_plot_{species} _Detailed_Sample_{sample_size}.png", dpi=300)
-        plt.close()
-        print(f"SHAP summary plot saved as 'Shap_summary_plot_{species} _Detailed_Sample_{sample_size}.png")
-    else:
-        plt.savefig("plots/Shap_summary_plot_" +species + "_Detailed_All.png", dpi=300)
-        plt.close()
-        print(f"SHAP summary plot saved as 'Shap_feature_importance_{species}_Detailed_all.png'")
+    
+    plt.savefig(f"plots/Shap_summary_plot_{species} _Detailed_Sample_{sample_size}.png", dpi=300)
+    plt.close()
+    print(f"SHAP summary plot saved as 'Shap_summary_plot_{species} _Detailed_Sample_{sample_size}.png")
 
 
+    
     # Compute global SHAP values using the sampled dataset
     global_shap_values = np.mean(np.abs(shap_values), axis=0)
 
@@ -380,7 +385,7 @@ for species in species_list:
     sorted_shap_values = feature_importance_df['Mean_Abs_SHAP'].values
     sorted_correlation_values = feature_importance_df['Correlation'].values
 
-    # 🔹 **Assign colors AFTER sorting**
+    #  **Assign colors AFTER sorting**
     colors = ['green' if corr > 0 else 'orange' for corr in sorted_correlation_values]
 
     # Plot feature importance
@@ -410,10 +415,7 @@ for species in species_list:
     plt.tight_layout()
 
     # Save the plot
-    if shap_sample:
-        filename = f"plots/Global_shap_feature_importance_{species}_Sample_{sample_size}.png"
-    else:
-        filename = f"plots/Global_shap_feature_importance_{species}_All.png"
+    filename = f"plots/Global_shap_feature_importance_{species}_Sample_{sample_size}.png"
 
     plt.savefig(filename, dpi=300)
     plt.close()
