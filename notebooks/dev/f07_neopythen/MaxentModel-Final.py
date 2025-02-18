@@ -216,12 +216,12 @@ for species in species_list:
     nearest_habitat_df[species] = True
     
 
-    # pseudo absence data:
-    ## reading the FULL CUBE for Luxembourg and filter out region where not plant grow is possible (water & sealed areas)
+    # background data:
+    ## reading the FULL CUBE for Luxembourg, set to na points where no plant growth is possible (water & sealed areas)
     background_cube = xr.merge([c_1, c_2, c_3, c_5, c_6,c_7, c_8, c_9])
-    background_cube =  background_cube.sel(band=1).where((background_cube['ellenberg_water_area'] ==0) & (background_cube['ellenberg_not_sealed_area'] == 1), 0)
+    background_cube =  background_cube.sel(band=1).where((background_cube['ellenberg_water_area'] ==0) & (background_cube['ellenberg_not_sealed_area'] == 1))
 
-    # filter our location where species has occurred
+    ## set to na points where species has occurred
     # get coordinates from occurrence cube
     x_coords_grid = list(nearest_habitat_values.x.values)
     y_coords_grid = list(nearest_habitat_values.y.values)
@@ -231,15 +231,12 @@ for species in species_list:
     mask.mask.loc[dict(x=x_coords_grid, y=y_coords_grid)] = False
     # set locations of species occurrence to na
     background_habitat_values = background_cube.where(mask.mask)
-    # Step 4: Convert the non-occurrence habitat data to a DataFrame
-    background_habitat_df = background_habitat_values.to_dataframe().reset_index()
+    # Step 4: Convert the non-occurrence habitat data to a DataFrame and remove masked values (all na)
+    background_habitat_df = background_habitat_values.to_dataframe().reset_index().dropna()
     
     feature_columns = ['d01_L_light', 'd02_F_wetness', 'd03_T_parameter_2017', 
                        'd05_R_ph', 'd06_N_nitrogen', 'd09_LV_landcover', 
                        'ellenberg_water_area', 'ellenberg_not_sealed_area']
-
-    # Ensure that we keep only rows where at least one feature column is non-zero
-    background_habitat_df = background_habitat_df.loc[(background_habitat_df[feature_columns] != 0).any(axis=1)]
 
     # Randomly sample background points after filtering
     background_ratio = 20  # Adjust as needed
@@ -247,8 +244,6 @@ for species in species_list:
 
     background_habitat_df = background_habitat_df.sample(n=target_bg_size, random_state=42)
     
-    # drop na values
-    background_habitat_df.dropna(inplace=True)
     # Step 5: Mark these samples as "False" for species presence
     background_habitat_df[species] = False 
 
