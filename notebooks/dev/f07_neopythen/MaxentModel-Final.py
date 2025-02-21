@@ -17,7 +17,8 @@ import elapid # For Maxent
 import shap # For explainibility 
 import logging
 import warnings
-
+from measurer import Measurer
+from types import ModuleType
 
 warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -214,6 +215,9 @@ def plot_shap_global(species, shap_values, sample_features):
 
 
 if __name__ == "__main__":
+    measurer = Measurer()
+    tracker = measurer.start(data_path=os.environ.get("HOME") +"/s3/data/d012_luxembourg/")
+    shape = []
     ######## connect to DATABASE server: 
     database_config_path = glob.glob(os.environ.get("HOME")+'/database*.ini')[0]
     keys = db_connect.config(filename=database_config_path)
@@ -392,7 +396,7 @@ if __name__ == "__main__":
             return maxent.predict(X).flatten()
 
         # Sampling
-        sample_size = 100
+        sample_size = 1000
         sample_features = shap.sample(features, sample_size, random_state=42)
         
         print(f"[SHAP Analysis] Running on {sample_size} sample points (Total dataset: {len(features)} rows)")
@@ -414,5 +418,12 @@ if __name__ == "__main__":
         logging.info(f"🌿 Processing {species} completed \n")
 
     print("\n✅ Process Complete - All species processed successfully!")
+    measurer.end(tracker=tracker,
+                 shape=shape,
+                 libraries=[v.__name__ for k, v in globals().items() if type(v) is ModuleType and not k.startswith('__')],
+                 data_path=os.environ.get("HOME") +"/s3/data/d012_luxembourg/",
+                 program_path=__file__,
+                 variables=locals(),
+                 csv_file='benchmarks.csv')
 
 
