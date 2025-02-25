@@ -10,14 +10,16 @@ from sklearn.model_selection import train_test_split
 import rioxarray as rxr
 import matplotlib.patches as mpatches
 import sys
-project_root = os.path.abspath("../../..")
+
+project_root = os.path.abspath("../..")
 sys.path.append(project_root)
 from src import db_connect
+from src import measurer
 import elapid # For Maxent
 import shap # For explainibility 
 import logging
 import warnings
-from measurer import Measurer
+from src.measurer import Measurer  # Correct import
 from types import ModuleType
 
 warnings.filterwarnings("ignore")
@@ -54,7 +56,7 @@ def plot_variables(parameters):
         param.plot() 
         plt.title(parameter_names[i])
     plt.tight_layout
-    plt.savefig(f"plots/Variable_plot.png")
+    plt.savefig(f"../../images/variable_maxent_plot.png")
     plt.close
 
 
@@ -148,7 +150,7 @@ def plot_shap_detailed(species, shap_values, sample_features):
     shap.summary_plot(shap_values, sample_features, show=False)
     plt.title("SHAP Summary Plot for Maxent ("+species +")")
     plt.tight_layout()
-    plt.savefig(f"plots/Shap_Detailed_{species}_{len(sample_features)}.png", dpi=300)
+    plt.savefig(f"../../images/shapMaxent/Shap_Detailed_{species}_{len(sample_features)}.png", dpi=300)
     plt.close()
 
 
@@ -205,7 +207,7 @@ def plot_shap_global(species, shap_values, sample_features):
     plt.gca().invert_yaxis()  # Ensure most important feature remains on top
     plt.tight_layout()
 
-    plt.savefig(f"plots/Shap_Global_{species}_{sample_size}.png", dpi=300)
+    plt.savefig(f"../../images/shapMaxent/Shap_Global_{species}_{sample_size}.png", dpi=300)
     plt.close()
     
 ############################################################################################## Main ###########################################################################
@@ -396,7 +398,7 @@ if __name__ == "__main__":
             return maxent.predict(X).flatten()
 
         # Sampling
-        sample_size = 1000
+        sample_size = 100
         sample_features = shap.sample(features, sample_size, random_state=42)
         
         print(f"[SHAP Analysis] Running on {sample_size} sample points (Total dataset: {len(features)} rows)")
@@ -424,6 +426,6 @@ if __name__ == "__main__":
                  data_path=os.environ.get("HOME") +"/s3/data/d012_luxembourg/",
                  program_path=__file__,
                  variables=locals(),
-                 csv_file='benchmarks.csv')
+                 csv_file='benchmarks_maxent.csv')
 
 

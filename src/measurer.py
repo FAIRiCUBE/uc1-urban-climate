@@ -1,6 +1,6 @@
 from codecarbon import EmissionsTracker
 import psutil
-from src import utils
+from src import measurer_utilities
 import tracemalloc
 import platform
 import torch
@@ -233,23 +233,23 @@ class Measurer:
         csv.loc[len(csv)] = {'Measure': 'Largest allocated array in grid points ',
                              'Value': self.largest_allocated_array_in_grid_points}
         csv.loc[len(csv)] = {'Measure': 'Data size (MB)',
-                             'Value': round(utils.bytes_to(self.data_size, 'm'),2)}
+                             'Value': round(measurer_utilities.bytes_to(self.data_size, 'm'),2)}
         csv.loc[len(csv)] = {'Measure': 'Data read (MB)',
-                             'Value': round(utils.bytes_to(self.data_read, 'm'),2)}
+                             'Value': round(measurer_utilities.bytes_to(self.data_read, 'm'),2)}
         csv.loc[len(csv)] = {'Measure': 'Data written (MB)',
-                             'Value': round(utils.bytes_to(self.data_written, 'm'),2)}
+                             'Value': round(measurer_utilities.bytes_to(self.data_written, 'm'),2)}
         csv.loc[len(csv)] = {'Measure': 'Main memory available (MB)',
-                             'Value': round(utils.bytes_to(self.main_memory_available, 'm'),2)}
+                             'Value': round(measurer_utilities.bytes_to(self.main_memory_available, 'm'),2)}
         csv.loc[len(csv)] = {'Measure': 'Main memory consumed (MB)',
-                             'Value': round(utils.bytes_to(self.main_memory_consumed, 'm'), 2)}
+                             'Value': round(measurer_utilities.bytes_to(self.main_memory_consumed, 'm'), 2)}
         csv.loc[len(csv)] = {'Measure': 'Sum of allocated variable sizes (MB)',
-                             'Value': round(utils.bytes_to(self.sum_of_allocated_variable_sizes, 'm'),2)}
+                             'Value': round(measurer_utilities.bytes_to(self.sum_of_allocated_variable_sizes, 'm'),2)}
         csv.loc[len(csv)] = {'Measure': 'Description of CPU/GPU', 'Value': self.cpu_gpu_description}
         csv.loc[len(csv)] = {'Measure': 'Wall time (s)', 'Value': round(self.wall_time, 2)}
         csv.loc[len(csv)] = {'Measure': 'Energy consumed (W)', 'Value': self.max_energy_consumed}
         csv.loc[len(csv)] = {'Measure': 'CO₂-equivalents [CO₂eq] (g)', 'Value': self.co2_consumed}
         csv.loc[len(csv)] = {'Measure': 'Network traffic (MB)',
-                             'Value': round(utils.bytes_to(self.network_traffic, 'm'),2)}
+                             'Value': round(measurer_utilities.bytes_to(self.network_traffic, 'm'),2)}
         # csv.loc[len(csv)] = {'Measure': 'Storage cost', 'Value': self.storage_cost}
         # csv.loc[len(csv)] = {'Measure': 'Compute cost', 'Value': self.compute_cost}
         # csv.loc[len(csv)] = {'Measure': 'Network cost', 'Value': self.network_cost}
