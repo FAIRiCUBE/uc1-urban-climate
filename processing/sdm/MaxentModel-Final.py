@@ -28,9 +28,7 @@ logging.basicConfig(
 )
 logging.getLogger("shap").setLevel(logging.ERROR)
 
-
 print("✅ Libraries successfully loaded!")
-
 
 ########################################### FUNCTIONS ######################################
 def load_raster(base_path, file_name, name):
@@ -234,7 +232,6 @@ def plot_shap_global(species, shap_values, sample_features):
 
 ############################################################################################## Main ###########################################################################
 
-
 if __name__ == "__main__":
     measurer = Measurer()
     tracker = measurer.start(
@@ -308,16 +305,14 @@ if __name__ == "__main__":
 
     ### Binary masks for Landcover
     # 1. Water areas
-    d09_water_area = xr.where(
-        cube_09_landcover == 60, 1, 0
-    )  # Else set to 0
-    d09_water_area = d09_water_area.rename('water_mask')
+    d09_water_area = xr.where(cube_09_landcover == 60, 1, 0)  # Else set to 0
+    d09_water_area = d09_water_area.rename("water_mask")
 
     # 2. Non sealed areas:
     d09_not_sealed = xr.where(
         cube_09_landcover.isin([30, 70, 71, 80, 91, 92, 93]), 1, 0
     )  # Else set to 0
-    d09_not_sealed = d09_not_sealed.rename('not_sealed_mask')
+    d09_not_sealed = d09_not_sealed.rename("not_sealed_mask")
 
     ##  Management buffer: area on in around roads, railways and water -buffered by 10m
     cube_10_not_management_buffer = load_raster(
@@ -354,10 +349,10 @@ if __name__ == "__main__":
     ################################################################## Model #########################################################
     # Select species
     species_list = [
-        "Robinia Pseudoacacia",
-        # "Fallopia Japonica",
-        # "Impatiens Glandulifera",
-        # "Heracleum Mantegazzianum",
+        # "Robinia Pseudoacacia",
+        "Fallopia Japonica",
+        "Impatiens Glandulifera",
+        "Heracleum Mantegazzianum",
     ]
 
     for species in species_list:
@@ -407,8 +402,8 @@ if __name__ == "__main__":
                 "dim_0",
                 "spatial_ref",
                 "d10_not_management_buffer",
-                "water_area",
-                "not_sealed_area",
+                "water_mask",
+                "not_sealed_mask",
             ]
         )
         print(
@@ -420,14 +415,41 @@ if __name__ == "__main__":
             f"\n[Training Maxent Model] Training and evaluating suitability model for {species}..."
         )
         auc_score = maxent_testing(features, labels)
-        logger.info(f"✔️ Maxent Model Evaluation Completed - AUC Score: {auc_score:.4f}")
+        logging.info(
+            f"✔️ Maxent Model Evaluation Completed - AUC Score: {auc_score:.4f}"
+        )
 
         ##################### Train on all for deployement ######################
         maxent = elapid.MaxentModel()
         maxent.fit(features, labels)
 
-
-        ############################### SHAP for explaning #####################
+        ##################### Save sustainability map ###########################
+        habitat_parameter_df = habitat_parameter_cube.where(
+            (habitat_parameter_cube["water_mask"] == 0)
+            & (habitat_parameter_cube["not_sealed_mask"] == 1)
+        ).to_dataframe()
+        habitat_parameter_df["sustainability"] = maxent.predict(
+            habitat_parameter_df[
+                [
+                    "d01_L_light",
+                    "d02_F_wetness",
+                    "d03_T_parameter_2017",
+                    "d05_R_ph",
+                    "d06_N_nitrogen",
+                    "d09_LV_landcover",
+                ]
+            ]
+        )
+        habitat_parameter_df = habitat_parameter_df[
+            ~habitat_parameter_df.index.duplicated()
+        ]
+        sustainability_map = habitat_parameter_df.to_xarray()
+        da_to_save = sustainability_map.sustainability
+        timestamp = pd.Timestamp.now().strftime("%Y%m%d%H%M%S")
+        out_file = f"{base_path}habitat_potential_map/{species_name.lower()}/{timestamp}_{species_name.lower()}_maxent.tif"
+        da_to_save.rio.to_raster(out_file)
+        logging.info(f"Saved sustainability map to {out_file}")
+        ##################### SHAP for explaning ################################
         # Predict function for Maxent suitability maps
         def predict_suitability(X):
             return maxent.predict(X).flatten()
