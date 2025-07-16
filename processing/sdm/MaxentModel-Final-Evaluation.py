@@ -148,7 +148,6 @@ def maxent_testing(features, labels):
     y_pred_prob = maxent.predict(X_test)
 
     print(f"Precence only split AUC Score: {roc_auc_score(y_test, y_pred_prob):.4f}")
-    compute_additional_metrics(y_test, y_pred_prob)
     
     return roc_auc_score(y_test, y_pred_prob)
 
