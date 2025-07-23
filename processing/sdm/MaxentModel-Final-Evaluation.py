@@ -12,8 +12,7 @@ import matplotlib.patches as mpatches
 import sys
 from elapid import GeographicKFold
 import geopandas as gpd
-
-
+from scipy.stats import spearmanr
 project_root = os.path.abspath("../..")
 sys.path.append(project_root)
 from src import db_connect
@@ -117,8 +116,35 @@ def background_data_extraction(habitat_parameter_cube, nearest_habitat_values, p
 
 
 
+def continuous_boyce_index(pred_presence, pred_background, bins=10):
+    # Bin edges
+    bin_edges = np.linspace(np.min(pred_background), np.max(pred_background), bins + 1)
+    
+    # Mid-points of bins
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
-def maxent_testing(features, labels):
+    # Count presence and background frequencies in bins
+    pres_hist, _ = np.histogram(pred_presence, bins=bin_edges)
+    back_hist, _ = np.histogram(pred_background, bins=bin_edges)
+
+    # Avoid division by zero
+    with np.errstate(divide='ignore', invalid='ignore'):
+        pe_ratio = pres_hist / back_hist
+        pe_ratio = np.where(back_hist == 0, np.nan, pe_ratio)
+
+    # Remove NaNs for correlation
+    valid = ~np.isnan(pe_ratio)
+    if np.sum(valid) < 2:
+        return np.nan  # Not enough valid bins
+
+    # Spearman correlation
+    cbi, _ = spearmanr(bin_centers[valid], pe_ratio[valid])
+
+    return cbi
+
+
+
+def maxent_testing(features, labels, presence_data, background_data):
     ## MAXENT (3.1.2)- Maxent that trains on: Part of the positives + all background data and tests on: the second part of positives + all background data
     # Step 1: Split presence data into training and testing sets
     presence_indices = np.where(labels == 1)[0]  # Indices for presence points
@@ -147,13 +173,17 @@ def maxent_testing(features, labels):
     # Predict suitability scores for the test set
     y_pred_prob = maxent.predict(X_test)
 
-    print(f"Precence only split AUC Score: {roc_auc_score(y_test, y_pred_prob):.4f}")
+    pred_presence = maxent.predict(presence_data)
+    pred_background = maxent.predict(background_data)
     
-    return roc_auc_score(y_test, y_pred_prob)
+    auc = roc_auc_score(y_test, y_pred_prob)
+    cbi = continuous_boyce_index(pred_presence, pred_background, bins=10)
+    
+    return (auc, cbi)
 
 
 
-def evaluate_maxent_checkerboard(presence, background, features, grid_size=5000):
+def evaluate_maxent_checkerboard(presence_data, background_data, features, grid_size=5000):
     """
     Evaluates MaxEnt model using checkerboard spatial split.
     """
@@ -173,8 +203,15 @@ def evaluate_maxent_checkerboard(presence, background, features, grid_size=5000)
     ypred = model.predict(xtest)
 
     auc = roc_auc_score(ytest, ypred)
-    print(f'Checkerboard split: AUC = {auc}')
-    return auc
+    
+
+    pred_presence = model.predict(presence_data)
+    pred_background = model.predict(background_data)
+    
+    cbi = continuous_boyce_index(pred_presence, pred_background, bins=10)
+    
+    
+    return (auc, cbi)
 
 
     
@@ -184,6 +221,7 @@ def evaluate_maxent_geographic_kfold(presence, background, features, n_splits=3)
     """
     
     auc_scores = []
+    cbi_scores = []
     gfolds = GeographicKFold(n_splits=n_splits)
 
     for fold, (train_idx, test_idx) in enumerate(gfolds.split(presence)):
@@ -209,10 +247,17 @@ def evaluate_maxent_geographic_kfold(presence, background, features, n_splits=3)
         auc = roc_auc_score(ytest, ypred)
         auc_scores.append(auc)
         print(f"Fold {fold+1} AUC: {auc:.4f}")
+        pred_presence = model.predict(presence_data)
+        pred_background = model.predict(background_data)
+    
+        cbi = continuous_boyce_index(pred_presence, pred_background, bins=10)
+        cbi_scores.append(cbi)
+        print(f"Fold {fold+1} CBI: {cbi:.4f}")
 
     mean_auc = np.mean(auc_scores)
-    print(f"GeographicKFold mean AUC: {mean_auc:.4f}")
-    return mean_auc
+    mean_cbi = np.mean(cbi_scores)
+    
+    return (mean_auc, mean_cbi)
 
 
 def evaluate_maxent_buffered_loocv(presence, background, features, distance=5000):
@@ -257,8 +302,12 @@ def evaluate_maxent_buffered_loocv(presence, background, features, distance=5000
     yobs_all = np.concatenate([ybg, yobs_scores])
 
     auc = roc_auc_score(yobs_all, ypred_all)
-    print(f"Buffered Leave-One-Out AUC: {auc:.4f}")
-    return auc
+    pred_presence = model.predict(presence)
+    pred_background = model.predict(background)
+    
+    cbi = continuous_boyce_index(pred_presence, pred_background, bins=10)
+    
+    return (auc, cbi)
 
 
 def plot_shap_detailed(species, shap_values, sample_features):
@@ -504,27 +553,36 @@ if __name__ == "__main__":
         # Select environmental variables (excluding species and coordinates)
         features = combined_data.drop(columns=[species, 'longitude', 'latitude', 'band', 'dim_0', 'spatial_ref', 'd10_not_management_buffer', 'ellenberg_water_area', 'ellenberg_not_sealed_area'])
         print(f"📊 Features ({len(features.columns)}):\n  - " + "\n  - ".join(features.columns))
-
+        
+        print(f"\n[Training Maxent Model]: Training and evaluating suitability model for {species}...")
+        print(f"\n 1. [Trains on: (80% of positives + all background). Tests on: 20% of positives + all background])")
+        (auc1, cbi1) = maxent_testing(features, labels, presence_data, background_data)
+        print(f"Precence only split AUC Score: {auc1:.4f}")
+        print(f"Precence only split CBI = {cbi1}")
 
         presence_data = to_gdf(presence_data)
         background_data = to_gdf(background_data)
         
-        print(f"\n[Training Maxent Model]: Training and evaluating suitability model for {species}...")
-        print(f"\n 1. [Trains on: (80% of positives + all background). Tests on: 20% of positives + all background])")
-        auc_score = maxent_testing(features, labels)
-        print(f"Precence only split AUC Score: {auc_score:.4f}")
         
-        print(f"\n 2. [Training and testing using checkerboard spatial split]: alternating grid cells are used for training and testing to ensure spatial separation")
+        grid_size = 5000
+        print(f"\n 2. [Training and testing using checkerboard spatial split]: alternating grid cells are used for training and testing to ensure spatial separation (Grid_size = {grid_size}).")
+        
+        (auc2, cbi2) = evaluate_maxent_checkerboard(presence_data, background_data, features, grid_size=grid_size)
+        print(f'Checkerboard split (Grid_size = {grid_size}) AUC = {auc1}')
+        print(f"Checkerboard split (Grid_size = {grid_size}) CBI = {cbi2}")
 
-        auc1 = evaluate_maxent_checkerboard(presence_data, background_data, features, grid_size=5000)
+        n_splits = 3
+        print(f"\n 3. [Training and testing using geographic k-fold cross-validation]: presence data is split into spatial clusters to evaluate model generalization across regions (K = {n_splits}).")
+        (auc3, cbi3) = evaluate_maxent_geographic_kfold(presence_data, background_data, features, n_splits=n_splits)
+        print(f'GeographicKFold mean (K = {n_splits}) AUC = {auc3}')
+        print(f"GeographicKFold mean (K = {n_splits}) CBI = {cbi3}")
 
-        print(f"\n 3. [Training and testing using geographic k-fold cross-validation]: presence data is split into spatial clusters to evaluate model generalization across regions.")
-        auc2 = evaluate_maxent_geographic_kfold(presence_data, background_data, features, n_splits=3)
 
-
-        print(f"\n 4. [Training and testing using buffered leave-one-out cross-validation]: presence points are iteratively held out, excluding nearby training points (buffered), to evaluate model generalization far from training areas.")
-        auc3 = evaluate_maxent_buffered_loocv(presence_data, background_data, features, distance=5000)
-        print(f"Buffered Leave-One-Out AUC: {auc3:.4f}")
+        distance = 5000
+        print(f"\n 4. [Training and testing using buffered leave-one-out cross-validation]: presence points are iteratively held out, excluding nearby training points (buffered), to evaluate model generalization far from training areas (Distance = {distance}).")
+        (auc4, cbi4) = evaluate_maxent_buffered_loocv(presence_data, background_data, features, distance=distance)
+        print(f"Buffered Leave-One-Out (Distance = {distance}) AUC: {auc4:.4f}")
+        print(f"Buffered Leave-One-Out (Distance = {distance}) CBI: {cbi4:.4f}")
 
         
         print(f"✔️ Maxent Model Evaluation Completed")
