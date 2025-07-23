@@ -393,6 +393,7 @@ if __name__ == "__main__":
     measurer = Measurer()
     tracker = measurer.start(data_path=os.environ.get("HOME") +"/s3/data/d012_luxembourg/")
     shape = []
+    results_path = "maxent_model_evaluation_results.csv"
     ######## connect to DATABASE server: 
     database_config_path = glob.glob(os.environ.get("HOME")+'/database*.ini')[0]
     keys = db_connect.config(filename=database_config_path)
@@ -584,7 +585,39 @@ if __name__ == "__main__":
         print(f"Buffered Leave-One-Out (Distance = {distance}) AUC: {auc4:.4f}")
         print(f"Buffered Leave-One-Out (Distance = {distance}) CBI: {cbi4:.4f}")
 
+        # Collect results in a list
+        if 'evaluation_results' not in locals():
+            evaluation_results = []
         
+        evaluation_results.append({
+            'Species': species,
+            'Split': 'Presence-only',
+            'Config': '80/20',
+            'AUC': round(auc1, 4),
+            'CBI': round(cbi1, 4)
+        })
+        evaluation_results.append({
+            'Species': species,
+            'Split': 'Checkerboard',
+            'Config': f'Grid: {grid_size//1000} km',
+            'AUC': round(auc2, 4),
+            'CBI': round(cbi2, 4)
+        })
+        evaluation_results.append({
+            'Species': species,
+            'Split': 'GeoKFold',
+            'Config': f'k={n_splits}',
+            'AUC': round(auc3, 4),
+            'CBI': round(cbi3, 4)
+        })
+        evaluation_results.append({
+            'Species': species,
+            'Split': 'Buffered LOO',
+            'Config': f'Buffer: {distance//1000} km',
+            'AUC': round(auc4, 4),
+            'CBI': round(cbi4, 4)
+        })
+
         print(f"✔️ Maxent Model Evaluation Completed")
 
 
@@ -618,6 +651,14 @@ if __name__ == "__main__":
         print(f"\n✅ Global SHAP plot saved!")
         
         logging.info(f"🌿 Processing {species} completed \n")
+        
+        if os.path.exists(results_path):
+            existing_df = pd.read_csv(results_path)
+            results_df = pd.concat([existing_df, pd.DataFrame(evaluation_results)], ignore_index=True)
+        else:
+            results_df = pd.DataFrame(evaluation_results)
+
+    results_df.to_csv(results_path, index=False)
 
     print("\n✅ Process Complete - All species processed successfully!")
     measurer.end(tracker=tracker,

@@ -1,0 +1,33 @@
+Species,Split,Config,AUC,CBI
+Robinia Pseudoacacia,Presence-only,-,0.9338,0.9879
+Robinia Pseudoacacia,Checkerboard,Grid: 3 km,0.8701,0.8667
+Robinia Pseudoacacia,GeoKFold,k=2,0.8537,0.8061
+Robinia Pseudoacacia,Buffered LOO,Buffer: 3 km,0.8928,0.7697
+Fallopia Japonica,Presence-only,-,0.9497,0.6727
+Fallopia Japonica,Checkerboard,Grid: 3 km,0.9372,0.9515
+Fallopia Japonica,GeoKFold,k=2,0.8955,0.6855
+Fallopia Japonica,Buffered LOO,Buffer: 3 km,0.893,0.3769
+Impatiens Glandulifera,Presence-only,-,0.9345,0.541
+Impatiens Glandulifera,Checkerboard,Grid: 3 km,0.8366,0.8545
+Impatiens Glandulifera,GeoKFold,k=2,0.8499,0.6997
+Impatiens Glandulifera,Buffered LOO,Buffer: 3 km,0.8808,0.4545
+Heracleum Mantegazzianum,Presence-only,-,0.9111,0.6565
+Heracleum Mantegazzianum,Checkerboard,Grid: 3 km,0.8845,0.5706
+Heracleum Mantegazzianum,GeoKFold,k=2,0.8475,0.44
+Heracleum Mantegazzianum,Buffered LOO,Buffer: 3 km,0.7673,0.4559
+Robinia Pseudoacacia,Presence-only,-,0.9341,0.9879
+Robinia Pseudoacacia,Checkerboard,Grid: 5 km,0.9213,0.9394
+Robinia Pseudoacacia,GeoKFold,k=3,0.8905,0.9354
+Robinia Pseudoacacia,Buffered LOO,Buffer: 5 km,0.7039,0.1515
+Fallopia Japonica,Presence-only,-,0.9493,0.6727
+Fallopia Japonica,Checkerboard,Grid: 5 km,0.9132,0.9394
+Fallopia Japonica,GeoKFold,k=3,0.8299,0.7346
+Fallopia Japonica,Buffered LOO,Buffer: 5 km,0.816,0.5636
+Impatiens Glandulifera,Presence-only,-,0.9345,0.541
+Impatiens Glandulifera,Checkerboard,Grid: 5 km,0.8254,0.6018
+Impatiens Glandulifera,GeoKFold,k=3,0.8176,0.6272
+Impatiens Glandulifera,Buffered LOO,Buffer: 5 km,0.6145,0.8909
+Heracleum Mantegazzianum,Presence-only,-,0.9109,0.6121
+Heracleum Mantegazzianum,Checkerboard,Grid: 5 km,0.8836,0.3743
+Heracleum Mantegazzianum,GeoKFold,k=3,0.8621,0.5339
+Heracleum Mantegazzianum,Buffered LOO,Buffer: 5 km,0.6447,0.7333
