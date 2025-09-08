@@ -11,3 +11,4 @@ database.ini
 src/__pycache__/
 src.egg-info/
 .venv
+.vscode
