@@ -1,26 +1,25 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
-from sqlalchemy import create_engine, text  # conection to the database
+from sqlalchemy import text  # conection to the database
 import os
-import glob
-import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 import rioxarray as rxr
-import matplotlib.patches as mpatches
-import sys
-
-project_root = os.path.abspath("../..")
-sys.path.append(project_root)
-from src import db_connect
-from src import measurer
 import elapid  # For Maxent
 import shap  # For explainibility
 import logging
 import warnings
-from src.measurer import Measurer  # Correct import
 from types import ModuleType
+from src.measurer import Measurer
+from src import db_connect
+from src import measurer
+from src.utils import (
+    plot_shap_detailed,
+    plot_shap_global,
+    presence_data_extraction,
+    background_data_extraction,
+)
 
 warnings.filterwarnings("ignore")
 logging.basicConfig(
@@ -29,94 +28,6 @@ logging.basicConfig(
 logging.getLogger("shap").setLevel(logging.ERROR)
 
 print("✅ Libraries successfully loaded!")
-
-########################################### FUNCTIONS ######################################
-def load_raster(base_path, file_name, name):
-    var = os.path.join(base_path, file_name)
-    cube = rxr.open_rasterio(var, default_name=name)
-    return cube.squeeze()
-
-
-def plot_variables(parameters):
-    # Plot all variable
-    parameter_names = [
-        "occurence_data",
-        "L_light",
-        "F_wetness",
-        "T_temperature",
-        "R_ph",
-        "N_nitrogen",
-        "water_area",
-        "not_sealed_area",
-    ]
-    plt.figure(figsize=(15, 20))
-    for i, param in enumerate(parameters):
-        plt.subplot(4, 3, i + 1)  # Create a grid of subplots
-        param.plot()
-        plt.title(parameter_names[i])
-    plt.tight_layout
-    plt.savefig(f"../../images/variable_maxent_plot.png")
-    plt.close
-
-
-def presence_data_extraction(nearest_habitat_values):
-    presence_habitat_df = nearest_habitat_values.to_dataframe().reset_index()
-    presence_habitat_df = presence_habitat_df.rename(
-        columns={"x": "longitude", "y": "latitude"}
-    )
-
-    presence_habitat_df = presence_habitat_df.replace(-9999, np.nan)
-    presence_habitat_df = presence_habitat_df.dropna()
-    return presence_habitat_df
-
-
-def background_data_extraction(
-    habitat_parameter_cube, nearest_habitat_values, presence_size, background_ratio=20
-):
-    ## reading the FULL CUBE for Luxembourg, set to na points where no plant growth is possible (water & sealed areas)
-    background_cube = habitat_parameter_cube.where(
-        (habitat_parameter_cube["water_mask"] == 0)
-        & (habitat_parameter_cube["not_sealed_mask"] == 1)
-    )
-
-    ## set to na points where species has occurred
-    # get coordinates from occurrence cube
-    x_coords_grid = list(nearest_habitat_values.x.values)
-    y_coords_grid = list(nearest_habitat_values.y.values)
-
-    # Create a boolean mask for species occurrences
-    mask = background_cube.assign(
-        mask=lambda x: (x.d01_L_light * 0 + 1).astype(bool)
-    ).drop_vars(background_cube.keys())
-    mask.mask.loc[dict(x=x_coords_grid, y=y_coords_grid)] = False
-    # set locations of species occurrence to na
-    background_habitat_values = background_cube.where(mask.mask)
-    # Step 4: Convert the non-occurrence habitat data to a DataFrame and remove masked values (all na)
-    background_habitat_df = (
-        background_habitat_values.to_dataframe().reset_index().dropna()
-    )
-
-    feature_columns = background_habitat_df.columns.drop(["y", "x", "band"])
-
-    # Randomly sample background points after filtering
-    target_bg_size = min(len(background_habitat_df), background_ratio * presence_size)
-
-    background_habitat_df = background_habitat_df.sample(
-        n=target_bg_size, random_state=42
-    )
-
-    ## MAXENT: data preparation
-    background_data = background_habitat_df.rename(
-        columns={"x": "longitude", "y": "latitude"}
-    )
-
-    # Replace -9999 by NaN
-    background_data = background_data.replace(-9999, np.nan)
-
-    # Drop rows with NaN values
-    background_data = background_data.dropna()
-
-    return background_data
 
 
 def maxent_testing(features, labels):
@@ -151,108 +62,16 @@ def maxent_testing(features, labels):
     return roc_auc_score(y_test, y_pred_prob)
 
 
-def plot_shap_detailed(species, shap_values, sample_features):
-
-    plt.figure(figsize=(10, 8))
-    shap.summary_plot(shap_values, sample_features, show=False)
-    plt.title("SHAP Summary Plot for Maxent (" + species + ")")
-    plt.tight_layout()
-    plt.savefig(
-        f"../../images/shapMaxent/Shap_Detailed_{species}_{len(sample_features)}.png",
-        dpi=300,
-    )
-    plt.close()
-
-
-def plot_shap_global(species, shap_values, sample_features):
-
-    # Compute global SHAP values using the sampled dataset
-    global_shap_values = np.mean(np.abs(shap_values), axis=0)
-
-    # Compute correlation between sampled feature values and SHAP values
-    feature_shap_correlation = []
-    for i, feature in enumerate(sample_features.columns):
-        correlation = np.corrcoef(sample_features[feature], shap_values[:, i])[
-            0, 1
-        ]  # Pearson correlation
-        feature_shap_correlation.append(correlation)
-
-    # Create a DataFrame with feature importance and correlation
-    feature_importance_df = pd.DataFrame(
-        {
-            "Feature": sample_features.columns,  # Use sampled features
-            "Mean_Abs_SHAP": global_shap_values,
-            "Correlation": feature_shap_correlation,
-        }
-    )
-
-    feature_importance_df = feature_importance_df.sort_values(
-        by="Mean_Abs_SHAP", ascending=False
-    )
-
-    sorted_features = feature_importance_df["Feature"].values
-    sorted_shap_values = feature_importance_df["Mean_Abs_SHAP"].values
-    sorted_correlation_values = feature_importance_df["Correlation"].values
-
-    colors = ["green" if corr > 0 else "orange" for corr in sorted_correlation_values]
-
-    plt.figure(figsize=(10, 6))
-    bars = plt.barh(
-        sorted_features, sorted_shap_values, color=colors
-    )  # Bars now sorted correctly
-    plt.xlabel("Mean Absolute SHAP Value")
-    plt.title(f"Global Feature Importance for Maxent Suitability ({species})")
-
-    for bar, corr in zip(bars, sorted_correlation_values):
-        plt.text(
-            bar.get_width() / 2,  # Position in the middle of the bar
-            bar.get_y() + bar.get_height() / 2,  # Centered in the bar
-            f"{corr:.2f}",  # Format to 2 decimal places
-            va="center",
-            ha="center",  # Center text inside bar
-            fontsize=10,
-            color="white" if abs(corr) > 0 else "black",  # Improve readability
-            fontweight="bold",
-        )
-
-    legend_patches = [
-        mpatches.Patch(color="green", label="Higher values increase suitability"),
-        mpatches.Patch(color="orange", label="Lower values increase suitability"),
-    ]
-    plt.legend(handles=legend_patches, loc="lower right")
-
-    plt.gca().invert_yaxis()  # Ensure most important feature remains on top
-    plt.tight_layout()
-
-    plt.savefig(
-        f"../../images/shapMaxent/Shap_Global_{species}_{sample_size}.png", dpi=300
-    )
-    plt.close()
-
-
 ############################################################################################## Main ###########################################################################
 
 if __name__ == "__main__":
     measurer = Measurer()
-    tracker = measurer.start(
-        data_path=os.environ.get("HOME") + "/s3/data/d012_luxembourg/"
-    )
+    tracker = measurer.start(data_path="./s3/data/d012_luxembourg/")
     shape = []
-    ######## connect to DATABASE server:
-    database_config_path = glob.glob(os.environ.get("HOME") + "/database*.ini")[0]
-    keys = db_connect.config(filename=database_config_path)
-    engine_postgresql = create_engine(
-        "postgresql://"
-        + keys["user"]
-        + ":"
-        + keys["password"]
-        + "@"
-        + keys["host"]
-        + ":"
-        + str(keys["port"])
-        + "/"
-        + keys["database"]
-    )
+    ######## Get data from database
+    # TODO change to your own connection method
+    engine_postgresql = db_connect.create_engine("./database_cinfig.ini")
+
     with engine_postgresql.connect() as connection:
         query = text(
             """
@@ -266,13 +85,17 @@ if __name__ == "__main__":
     logging.info("🌍 Starting data extraction...")
     ######################## Datacube extraction ######################
 
-    base_path = os.environ.get("HOME") + "/s3/data/d012_luxembourg/"
+    base_path = "./s3/data/d012_luxembourg/"
 
     ## Datasets 01 SHADOW:------------------------------------------------------
-    cube_01_L = load_raster(base_path, "shadow_2019_10m_b1.tif", "d01_L_light")
+    cube_01_L = rxr.open_rasterio(
+        f"{base_path}/shadow_2019_10m_b1.tif", default_name="d01_L_light"
+    ).squeeze()
 
     ### Dataset 02 WETNESS :----------------------------------------------------
-    cube_02_F = load_raster(base_path, "twi_2019_10m_b1.tif", "d02_F_wetness")
+    cube_02_F = rxr.open_rasterio(
+        f"{base_path}/twi_2019_10m_b1.tif", default_name="d02_F_wetness"
+    ).squeeze()
 
     ### Dataset 03 TEMPERATURE: monthly temp for 2017---------------------------
     cube_03_temperature_2017 = rxr.open_rasterio(
@@ -281,15 +104,19 @@ if __name__ == "__main__":
     ).mean(dim="band")
 
     ### Dataset 05 Reaktionszahl (ph):-------------------------------------------
-    cube_05_R = load_raster(base_path, "pH_CaCl_10m_b1.tif", "d05_R_ph")
+    cube_05_R = rxr.open_rasterio(
+        f"{base_path}/pH_CaCl_10m_b1.tif", default_name="d05_R_ph"
+    ).squeeze()
 
     ## ### Dataset 06 N:-------------------------------------------
-    cube_06_N = load_raster(base_path, "soil_nitrat_10m_b1.tif", "d06_N_nitrogen")
+    cube_06_N = rxr.open_rasterio(
+        f"{base_path}/soil_nitrat_10m_b1.tif", default_name="d06_N_nitrogen"
+    ).squeeze()
 
-    ### Dataset 09 : Land cover -water surface:-----------------------------------
-    cube_09_landcover = load_raster(
-        base_path, "land_cover_2021_10m_b1.tif", "d09_LV_landcover"
-    )
+    ### Dataset 09 : Land cover :-----------------------------------
+    cube_09_landcover = rxr.open_rasterio(
+        f"{base_path}/land_cover_2021_10m_b1.tif", default_name="d09_LV_landcover"
+    ).squeeze()
 
     # -- landcover_code	landcover_name LEGEND:
     # -- 10	buildings
@@ -315,9 +142,10 @@ if __name__ == "__main__":
     d09_not_sealed = d09_not_sealed.rename("not_sealed_mask")
 
     ##  Management buffer: area on in around roads, railways and water -buffered by 10m
-    cube_10_not_management_buffer = load_raster(
-        base_path, "hip_b1_v2.tif", "d10_not_management_buffer"
-    )
+    cube_10_not_management_buffer = rxr.open_rasterio(
+        f"{base_path}/hip_b1_v2.tif", default_name="d10_not_management_buffer"
+    ).squeeze()
+
     logging.info("🌍 Raster data extracted!")
     habitat_parameter_cube = xr.merge(
         [
@@ -333,23 +161,10 @@ if __name__ == "__main__":
         ]
     )  ### FULL CUBE with all paramter - resolution 10m
 
-    # parameters = [
-    #     habitat_parameter_cube.d01_L_light,
-    #     habitat_parameter_cube.d02_F_wetness,
-    #     habitat_parameter_cube.d03_T_parameter_2017,
-    #     habitat_parameter_cube.d05_R_ph,
-    #     habitat_parameter_cube.d06_N_nitrogen,
-    #     habitat_parameter_cube.d09_LV_landcover,
-    #     habitat_parameter_cube.water_area,
-    #     habitat_parameter_cube.not_sealed_area,
-    # ]
-
-    # plot_variables(parameters)
-
     ################################################################## Model #########################################################
     # Select species
     species_list = [
-        # "Robinia Pseudoacacia",
+        "Robinia Pseudoacacia",
         "Fallopia Japonica",
         "Impatiens Glandulifera",
         "Heracleum Mantegazzianum",
@@ -412,7 +227,7 @@ if __name__ == "__main__":
         )
 
         print(
-            f"\n[Training Maxent Model] Training and evaluating suitability model for {species}..."
+            f"\n[Training Maxent Model]: Training and evaluating suitability model for {species}..."
         )
         auc_score = maxent_testing(features, labels)
         logging.info(
@@ -449,6 +264,7 @@ if __name__ == "__main__":
         out_file = f"{base_path}habitat_potential_map/{species_name.lower()}/{timestamp}_{species_name.lower()}_maxent.tif"
         da_to_save.rio.to_raster(out_file)
         logging.info(f"Saved sustainability map to {out_file}")
+
         ##################### SHAP for explaning ################################
         # Predict function for Maxent suitability maps
         def predict_suitability(X):
@@ -486,7 +302,7 @@ if __name__ == "__main__":
             for k, v in globals().items()
             if type(v) is ModuleType and not k.startswith("__")
         ],
-        data_path=os.environ.get("HOME") + "/s3/data/d012_luxembourg/",
+        data_path="./s3/data/d012_luxembourg/",
         program_path=__file__,
         variables=locals(),
         csv_file="benchmarks_maxent.csv",
