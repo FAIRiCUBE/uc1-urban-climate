@@ -1,0 +1,104 @@
+﻿Table,Theme,Variable code,Description,Priority
+urb_cenv,environment,EN1002V,Total number of hours of sunshine per day,1
+urb_cenv,environment,EN1003V,Average temperature of warmest month - degrees,1
+urb_cenv,environment,EN1004V,Average temperature of coldest month - degrees,1
+urb_cenv,environment,EN1005V,Rainfall - litre/m²,2
+urb_cenv,environment,EN2002V,Number of days ozone O3 concentrations exceed 120 µg/m³,2
+urb_cenv,environment,EN2003V,Number of hours nitrogen dioxide NO2 concentrations exceed 200 µg/m³,2
+urb_cenv,environment,EN2005V,Number of days particulate matter PM10 concentrations exceed 50 µg/m³,2
+urb_cenv,environment,EN2025V,Accumulated ozone concentration in excess 70 µg/m³,2
+urb_cenv,environment,EN2026V,Annual average concentration of NO2 (µg/m³),2
+urb_cenv,environment,EN2027V,Annual average concentration of PM10 (µg/m³),2
+urb_cenv,environment,EN2030V,Number of days particulate matter PM2.5 concentrations exceed 50 µg/m³,2
+urb_cenv,environment,EN3003V,Total use of water - m³,2
+urb_cenv,environment,EN3010V,Price of a m³ of domestic water - Euro,2
+urb_cenv,environment,EN3011V,Share of the urban waste water load (in population equivalents) treated according to the applicable standard -%,2
+urb_cenv,environment,EN4008V,"Municipal waste generated (domestic and commercial), total - 1000 t",2
+urb_cenv,environment,EN5001V,Green space to which the public has access - km²,2
+urb_cenv,environment,EN5012V,Green space area - km²,2
+urb_cenv,environment,EN5015V,Water and wetland - km²,2
+urb_cenv,environment,EN5016V,Land used for agricultural purposes - km²,2
+urb_cenv,environment,EN5026V,Other land use - km²,2
+urb_cenv,environment,EN5109V,Overbound - underbound based on population (qualitative indicator),2
+urb_cenv,environment,EN5110V,Overbound - underbound based on area (qualitative indicator),2
+urb_cenv,environment,EN2028V,Number of residents exposed to air traffic noise >65 dB(A) at day time,2
+urb_cenv,environment,EN2029V,Number of residents exposed to air traffic noise >55 dB(A) at night time,2
+urb_cenv,environment,EN2032V,Number of residents exposed to rail traffic (incl. tram) noise >65dB(A) at daytime,2
+urb_cenv,environment,EN2033V,Number of residents exposed to road traffic noise >65 dB(A) at day time,2
+urb_cenv,environment,EN2035V,Number of residents exposed to road traffic noise >55 dB(A) at night time,2
+urb_cenv,environment,EN2036V,Number of residents exposed to rail traffic (incl. tram) noise >55dB(A) at night-time,2
+urb_cenv,environment,EN3012V,Share of population connected to potable drinking water system - %,1
+urb_cenv,environment,EN3013V,Share of population connected to sewerage treatment system - %,1
+urb_cenv,environment,EN5200V,Share of land (%): Continuous residential urban fabric,1
+urb_cenv,environment,EN5201V,Share of land (%): Discontinuous residential urban fabric,1
+urb_cenv,environment,EN5202V,"Share of land (%): Industrial, commercial, public, military and private units",1
+urb_cenv,environment,EN5203V,Share of land (%): Transport infrastructure,1
+urb_cenv,environment,EN5204V,Share of land (%): Other artificial areas,1
+urb_cenv,environment,EN5205V,Share of land (%): Green urban areas and sports and leisure facilities,1
+urb_cenv,environment,EN5206V,Share of land (%): Agricultural areas,1
+urb_cenv,environment,EN5207V,Share of land (%): Natural areas,1
+urb_cfermor,fertility_mortality,SA2013V,Number of deaths per year under 65 due to diseases of the circulatory or respiratory systems,2
+urb_cfermor,fertility_mortality,SA2016V,Total deaths under 65 per year,2
+urb_cfermor,fertility_mortality,SA2019V,Total deaths per year,2
+urb_clivcon,living_conditions,EC3039V,Median disposable annual household income - EUR,1
+urb_clivcon,living_conditions,EC3040V,Average disposable annual household income - EUR,1
+urb_clivcon,living_conditions,EC3064V,Share of persons living in households with very low work intensity - %,1
+urb_clivcon,living_conditions,EC3065V,Share of persons at risk of poverty after social transfers -%,1
+urb_clivcon,living_conditions,SA1001V,Number of conventional dwellings,1
+urb_clivcon,living_conditions,SA1025V,Empty conventional dwellings,1
+urb_clivcon,living_conditions,SA1052V,Average price for buying a house per m2 - EUR,1
+urb_clivcon,living_conditions,SA1053V,Average price for buying an apartment  per m2 - EUR,1
+urb_clivcon,living_conditions,SA3005V,Number of murders and violent deaths,1
+urb_clma,economy,EC1002V,"Economically active population, total",2
+urb_clma,economy,EC1010V,"Persons unemployed, total",2
+urb_clma,economy,EC2030V,Gross Domestic Product of NUTS-3 region in million Euro,2
+urb_clma,economy,EC3066V,Share of severely materially deprived persons -%,2
+urb_clma,economy,EC3067V,Share of persons at risk of poverty or social exclusion -%,2
+urb_clma,economy,EC1145V,"Economically active population 55-64, total",1
+urb_clma,economy,EC1174V,"Economically active population, 20-64, total",1
+urb_clma,economy,EC1177V,"Persons employed, 20-64, total",1
+urb_clma,economy,EC1180V,"Persons employed, 55-64, total",1
+urb_cpop1,population,DE1001V,"Population on the 1st of January, total",2
+urb_cpop1,population,DE1025V,"Population on the 1st of January, 55-64 years, total",2
+urb_cpop1,population,DE1028V,"Population on the 1st of January, 65-74 years, total",2
+urb_cpop1,population,DE1040V,"Population on the 1st of January, 0-4 years, total",2
+urb_cpop1,population,DE1046V,"Population on the 1st of January, 15-19 years, total",2
+urb_cpop1,population,DE1049V,"Population on the 1st of January, 20-24 years, total",2
+urb_cpop1,population,DE1055V,"Population on the 1st of January, 75 years and over, total",2
+urb_cpop1,population,DE1058V,"Population on the 1st of January, 25-34 years, total",2
+urb_cpop1,population,DE1061V,"Population on the 1st of January, 35-44 years, total",2
+urb_cpop1,population,DE1064V,"Population on the 1st of January, 45-54 years, total",2
+urb_cpop1,population,DE1074V,"Population on the 1st of January, 5-9 years, total",2
+urb_cpop1,population,DE1077V,"Population on the 1st of January, 10-14 years, total",2
+urb_cpop1,population,DE1101V,"Population on the 1st of January, 25-29 years, total",2
+urb_cpop1,population,DE1104V,"Population on the 1st of January, 30-34 years, total",2
+urb_cpop1,population,DE1107V,"Population on the 1st of January, 35-39 years, total",2
+urb_cpop1,population,DE1110V,"Population on the 1st of January, 40-44 years, total",2
+urb_cpop1,population,DE1113V,"Population on the 1st of January, 45-49 years, total",2
+urb_cpop1,population,DE1116V,"Population on the 1st of January, 50-54 years, total",2
+urb_cpop1,population,DE1119V,"Population on the 1st of January, 55-59 years, total",2
+urb_cpop1,population,DE1122V,"Population on the 1st of January, 60-64 years, total",2
+urb_cpop1,population,DE1125V,"Population on the 1st of January, 65-69 years, total",2
+urb_cpop1,population,DE1128V,"Population on the 1st of January, 70-74 years, total",2
+urb_cpop1,population,DE1131V,"Population on the 1st of January, 75-79 years, total",2
+urb_cpop1,population,DE1134V,"Population on the 1st of January, 80-84 years, total",2
+urb_cpop1,population,DE1137V,"Population on the 1st of January, 85 years or over, total",2
+urb_cpopstr,population,DE1073V,Median population age,2
+urb_ctour,leisure,CR1015V,"Number of public swimming pools (indoor and outdoor, excluding beaches)",1
+urb_ctran,transport,TT1007V,Share of journeys to work by bicycle -%,2
+urb_ctran,transport,TT1008V,Share of journeys to work by foot -%,2
+urb_ctran,transport,TT1010V,"Share of journeys to work by public transport (rail, metro, bus, tram) -%",2
+urb_ctran,transport,TT1012V,Share of journeys to work by car or motor cycle -%,2
+urb_ctran,transport,TT1057V,Number of private cars registered,2
+urb_ctran,transport,TT1079V,Length of bicycle network (dedicated cycle paths and lanes) - km,2
+urb_ctran,transport,TT1019V,Average time of journey to work - minutes,1
+urb_ctran,transport,TT1020V,Average length of journey to work by private car - km,1
+urb_ctran,transport,TT1060V,Number of deaths in road accidents,1
+urb_ctran,transport,TT1064V,People commuting into the city,1
+urb_ctran,transport,TT1065V,People commuting out of the city,1
+urb_ctran,transport,TT1071V,Accessibility by air (EU27_2007 = 100) - index,2
+urb_ctran,transport,TT1072V,Accessibility by rail (EU27_2007 = 100) - index,2
+urb_ctran,transport,TT1073V,Accessibility by road (EU27_2007 = 100) - index,2
+urb_ctran,transport,TT1074V,Multimodal accessibility (EU27_2007 = 100) - index,2
+urb_ctran,transport,TT1080V,Cost of a combined monthly ticket (all modes of public transport) for 5-10 km in the central zone - EUR,1
+urb_ctran,transport,TT1081V,Cost of a taxi ride of 5 km to the centre at day time - EUR,1
