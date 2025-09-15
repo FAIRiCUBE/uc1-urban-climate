@@ -1,13 +1,13 @@
 import numpy as np
-from shapely.geometry import MultiLineString, MultiPolygon, Polygon, box, shape
+from shapely.geometry import MultiPolygon, Polygon
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
 from pathlib import Path
 import rasterio as rio
-import IPython.display
 from typing import Any, Optional, Tuple
+import matplotlib.patches as mpatches
 
 # Sentinel Hub
 from sentinelhub import (
@@ -218,7 +218,7 @@ def buffer_geometry(geometry, crs, buffer_size=1, resolution = 100):
     
     return geometry_b, bbox_b, bbox_size_b
 
-def split_geometry(geometry, bbox):
+def split_geometry(geometry, bbox) -> Any:
     if(type(bbox) is BBox):
         bbox_polygon = bbox.geometry
     elif(type(bbox) is Polygon):
@@ -315,3 +315,152 @@ if __name__ == '__main__':
     bbox_size = bbox_to_dimensions(bbox, resolution=resolution)
     # get only buffer zone
     geometry_b, bbox_b, bbox_size_b = buffer_geometry(geometry_gdf, buffer_size=100)
+
+    def plot_variables(parameters, parameter_names, out_dir=""):
+    # Plot all variables
+    plt.figure(figsize=(15, 20))
+    for i, param in enumerate(parameters):
+        plt.subplot(4, 3, i + 1)  # Create a grid of subplots
+        param.plot()
+        plt.title(parameter_names[i])
+    plt.tight_layout()
+    if out_dir:
+        plt.savefig(f"{out_dir}/all_variables.png")
+    plt.show()
+    plt.close()
+
+
+def presence_data_extraction(nearest_habitat_values):
+    presence_habitat_df = nearest_habitat_values.to_dataframe().reset_index()
+    presence_habitat_df = presence_habitat_df.rename(
+        columns={"x": "longitude", "y": "latitude"}
+    )
+
+    presence_habitat_df = presence_habitat_df.replace(-9999, np.nan)
+    presence_habitat_df = presence_habitat_df.dropna()
+    return presence_habitat_df
+
+
+def background_data_extraction(
+    habitat_parameter_cube, nearest_habitat_values, presence_size, background_ratio=20
+):
+    ## reading the FULL CUBE for Luxembourg, set to na points where no plant growth is possible (water & sealed areas)
+    background_cube = habitat_parameter_cube.where(
+        (habitat_parameter_cube["water_mask"] == 0)
+        & (habitat_parameter_cube["not_sealed_mask"] == 1)
+    )
+
+    ## set to na points where species has occurred
+    # get coordinates from occurrence cube
+    x_coords_grid = list(nearest_habitat_values.x.values)
+    y_coords_grid = list(nearest_habitat_values.y.values)
+
+    # Create a boolean mask for species occurrences
+    mask = background_cube.assign(
+        mask=lambda x: (x.d01_L_light * 0 + 1).astype(bool)
+    ).drop_vars(background_cube.keys())
+    mask.mask.loc[dict(x=x_coords_grid, y=y_coords_grid)] = False
+    # set locations of species occurrence to na
+    background_habitat_values = background_cube.where(mask.mask)
+    # Step 4: Convert the non-occurrence habitat data to a DataFrame and remove masked values (all na)
+    background_habitat_df = (
+        background_habitat_values.to_dataframe().reset_index().dropna()
+    )
+
+    # Randomly sample background points after filtering
+    target_bg_size = min(len(background_habitat_df), background_ratio * presence_size)
+
+    background_habitat_df = background_habitat_df.sample(
+        n=target_bg_size, random_state=42
+    )
+
+    ## MAXENT: data preparation
+    background_data = background_habitat_df.rename(
+        columns={"x": "longitude", "y": "latitude"}
+    )
+
+    # Replace -9999 by NaN
+    background_data = background_data.replace(-9999, np.nan)
+
+    # Drop rows with NaN values
+    background_data = background_data.dropna()
+
+    return background_data
+
+def plot_shap_detailed(species, shap_values, sample_features):
+
+    plt.figure(figsize=(10, 8))
+    shap.summary_plot(shap_values, sample_features, show=False)
+    plt.title("SHAP Summary Plot for Maxent (" + species + ")")
+    plt.tight_layout()
+    plt.savefig(
+        f"../../images/shapMaxent/Shap_Detailed_{species}_{len(sample_features)}.png",
+        dpi=300,
+    )
+    plt.close()
+
+
+def plot_shap_global(species, shap_values, sample_features):
+
+    # Compute global SHAP values using the sampled dataset
+    global_shap_values = np.mean(np.abs(shap_values), axis=0)
+
+    # Compute correlation between sampled feature values and SHAP values
+    feature_shap_correlation = []
+    for i, feature in enumerate(sample_features.columns):
+        correlation = np.corrcoef(sample_features[feature], shap_values[:, i])[
+            0, 1
+        ]  # Pearson correlation
+        feature_shap_correlation.append(correlation)
+
+    # Create a DataFrame with feature importance and correlation
+    feature_importance_df = pd.DataFrame(
+        {
+            "Feature": sample_features.columns,  # Use sampled features
+            "Mean_Abs_SHAP": global_shap_values,
+            "Correlation": feature_shap_correlation,
+        }
+    )
+
+    feature_importance_df = feature_importance_df.sort_values(
+        by="Mean_Abs_SHAP", ascending=False
+    )
+
+    sorted_features = feature_importance_df["Feature"].values
+    sorted_shap_values = feature_importance_df["Mean_Abs_SHAP"].values
+    sorted_correlation_values = feature_importance_df["Correlation"].values
+
+    colors = ["green" if corr > 0 else "orange" for corr in sorted_correlation_values]
+
+    plt.figure(figsize=(10, 6))
+    bars = plt.barh(
+        sorted_features, sorted_shap_values, color=colors
+    )  # Bars now sorted correctly
+    plt.xlabel("Mean Absolute SHAP Value")
+    plt.title(f"Global Feature Importance for Maxent Suitability ({species})")
+
+    for bar, corr in zip(bars, sorted_correlation_values):
+        plt.text(
+            bar.get_width() / 2,  # Position in the middle of the bar
+            bar.get_y() + bar.get_height() / 2,  # Centered in the bar
+            f"{corr:.2f}",  # Format to 2 decimal places
+            va="center",
+            ha="center",  # Center text inside bar
+            fontsize=10,
+            color="white" if abs(corr) > 0 else "black",  # Improve readability
+            fontweight="bold",
+        )
+
+    legend_patches = [
+        mpatches.Patch(color="green", label="Higher values increase suitability"),
+        mpatches.Patch(color="orange", label="Lower values increase suitability"),
+    ]
+    plt.legend(handles=legend_patches, loc="lower right")
+
+    plt.gca().invert_yaxis()  # Ensure most important feature remains on top
+    plt.tight_layout()
+
+    plt.savefig(
+        f"../../images/shapMaxent/Shap_Global_{species}_{sample_size}.png", dpi=300
+    )
+    plt.close()
