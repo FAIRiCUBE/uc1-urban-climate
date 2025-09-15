@@ -218,7 +218,7 @@ def buffer_geometry(geometry, crs, buffer_size=1, resolution = 100):
     
     return geometry_b, bbox_b, bbox_size_b
 
-def split_geometry(geometry, bbox):
+def split_geometry(geometry, bbox) -> Any:
     if(type(bbox) is BBox):
         bbox_polygon = bbox.geometry
     elif(type(bbox) is Polygon):
@@ -464,4 +464,3 @@ def plot_shap_global(species, shap_values, sample_features):
         f"../../images/shapMaxent/Shap_Global_{species}_{sample_size}.png", dpi=300
     )
     plt.close()
-
