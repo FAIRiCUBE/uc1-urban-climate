@@ -1,4 +1,4 @@
-# City features collection
+# European cities atlas
 
 A collection of features for ~700 European cities, for the reference year 2018.
 
