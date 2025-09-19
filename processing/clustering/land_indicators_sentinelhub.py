@@ -269,7 +269,7 @@ if __name__ == "__main__":
     logger.info("Start")
     # load city polygons
     city_polygons = (
-        "./data/city_features_collection/URAU_RG_100K_2021_3035_CITIES.geojson"
+        "./data/eu_cities_atlas/URAU_RG_100K_2021_3035_CITIES.geojson"
     )
     geo_json_city = gpd.read_file(city_polygons)
     gdf_city = gpd.GeoDataFrame(geo_json_city, crs="EPSG:3035")

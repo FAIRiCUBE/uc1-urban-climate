@@ -11,7 +11,7 @@ from sklearn.preprocessing import MinMaxScaler
 from src.models.Weighted_Clustering import WeightedKMeans
 """
 Example script for weighted k-means clustering of cities based on their features.
-Uses the WeightedKMeans class from src.models.Weighted_Clustering.py and the city features collection from data/city_features_collection/city_features_collection_v0.1.geojson.
+Uses the WeightedKMeans class from src.models.Weighted_Clustering.py and the European cities atlas from data/eu_cities_atlas/eu_cities_atlas_v0.1.geojson.
 """
 
 def weighted_kmeans_clustering(
@@ -210,7 +210,7 @@ def weighted_kmeans_clustering(
 
 if __name__ == "__main__":
     ###### define source of data and output directory
-    data_path = "./data/city_features_collection/city_features_collection_v0.1.geojson"
+    data_path = "./data/eu_cities_atlas/eu_cities_atlas_v0.1.geojson"
     out_dir = ""
 
     ##### Load data
