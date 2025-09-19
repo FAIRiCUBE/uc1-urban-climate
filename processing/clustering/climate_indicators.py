@@ -189,7 +189,8 @@ if __name__ == "__main__":
     )
 
     # get df cities
-    cities_path = "./data/city_features_collection/URAU_LB_2021_4326.geojson"
+    # download URAU_LB_2021_4326 from Eurostat GISCO first
+    cities_path = "./data/eu_cities_atlas/URAU_LB_2021_4326.geojson"
     load_cities_df = gpd.read_file(cities_path)
     load_cities_df.rename(columns={"URAU_CODE": "city_code"}, inplace=True)
     # extract x,y coordinates from geometry
