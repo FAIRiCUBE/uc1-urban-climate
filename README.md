@@ -36,57 +36,37 @@ test_file = './../../s3/data/test.csv'
 Directory layout
 -------------------------------------------------------------------------------------------
 
-    ├── data               <- sample data. Note: all data is stored in an S3 bucket
-    │
-    ├── notebooks          <- Jupyter notebooks
-    │   ├── demo           <- notebooks to show how to use the software developed in this repository
-    │   └── dev            <- work-in-progress notebooks for testing and developing
-    │
-    ├── pre-processing     <- tools for data pre-processing. Can include Python scripts, CLI instructions etc.
-    │
-    ├── processing         <- tools for data processing. Mainly Python scripts
-    │
-    ├── post-processing    <-  tools for data post-processing. Can include Python scripts, CLI instructions etc.
-    │
-    ├── src                <- Source code for use in this project.
-    │   ├── __init__.py    <- Makes src a Python module
-    │   ├── utils.py       <- Collection of common functions used in notebooks
+    ├── data  
     │   │
-    │   ├── data           <- Scripts to download or generate data
-    │   │   └── make_dataset.py
-    │   │
-    │   ├── features       <- Scripts to turn raw data into features for modeling
-    │   │   └── build_features.py
-    │   │
-    │   ├── models         <- Scripts to train models and then use trained models to make
-    │   │   │                 predictions
-    │   │   ├── predict_model.py
-    │   │   └── train_model.py
-    │   │
-    │   └── visualization  <- Scripts to create exploratory and results oriented visualizations
-    │       └── visualize.py
-    ├── LICENSE
-    ├── Makefile           <- Makefile with commands like `make data` or `make train`
-    ├── README.md          <- The top-level README for developers using this project.
-    ├── docs               <- A default Sphinx project; see sphinx-doc.org for details
-    │
-    ├── models             <- Trained and serialized models, model predictions, or model summaries
-    │
-    ├── references         <- Data dictionaries, manuals, and all other explanatory materials.
-    │
-    ├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
-    │   └── figures        <- Generated graphics and figures to be used in reporting
-    │
-    ├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
-    │                         generated with `pip freeze > requirements.txt`
-    │
-    ├── setup.py           <- makes project pip installable (pip install -e .) so src can be imported
-    │
-    └── tox.ini            <- tox file with settings for running tox; see tox.readthedocs.io
+    │   ├── eu_cities_atlas   <- repository of city indicators dataset
+    │   └── test              <- sample data
+    ├── images
+    ├── notebooks             <- Jupyter notebooks
+    │   ├── demo              <- notebooks to show how to use the software developed in this repository
+    │   └── dev               <- work-in-progress notebooks for testing and developing
+    ├── post-processing
+    ├── pre-processing        <- tools for data pre-processing. Can include Python scripts, CLI instructions etc.
+    ├── processing            <- tools for data processing. Mainly Python scripts
+    │   ├── clustering
+    │   ├── gap_filling
+    │   └── sdm
+    ├── src
+    │   ├── utils.py          <- Collection of common functions used in notebooks
+    │   ├── data              <- Scripts to download or generate data
+    │   ├── features          <- Scripts to turn raw data into features for modeling
+    │   ├── models            <- Scripts to train models and then use trained models to make predictions
+    │   ├── visualization     <- Scripts to create exploratory and results oriented visualizations
+    ├── LICENSE 
+    ├── Makefile              <- Makefile with commands like `make data` or `make train`
+    ├── README.md             <- The top-level README for developers using this project.
+    ├── docs                  <- A default Sphinx project; see sphinx-doc.org for details
+    ├── references            <- Data dictionaries, manuals, and all other explanatory materials.
+    ├── requirements.txt      <- The requirements file for reproducing the analysis environment, e.g.
+    │                            generated with `pip freeze > requirements.txt`
+    ├── setup.py              <- makes project pip installable (pip install -e .) so src can be imported
+    └── tox.ini               <- tox file with settings for running tox; see tox.readthedocs.io
 
 --------
-
-<p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
 
 About this Use Case
 -------------------------------------------------------------------------------------------
@@ -127,3 +107,5 @@ The project “Use case on Urban adaptation to climate change” will provide:
 - Factsheets, policy briefs, reports
 
 Being a demonstrator for the FAIRiCUBE HUB, the use case will showcase how such an environment can enable stakeholders to access and analyse data utilising ML: offering users access to data, provided as data cubes, machine learning models tailored for data cubes, and specific services required by the use cases. The solution will be built upon renowned and proven technologies and services like DIAS and Euro Data Cube.
+
+<p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
